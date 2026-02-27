@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod polygon;
 pub mod project;
 pub mod runner;
@@ -7,6 +8,7 @@ const APP_NAME: &str = "tcc-project";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let settings = settings::AppSettings::load().expect("Failed to load settings");
     tauri::Builder::default()
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -18,6 +20,8 @@ pub fn run() {
             }
             Ok(())
         })
+        .manage(settings)
+        .invoke_handler(tauri::generate_handler![commands::save_settings,])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

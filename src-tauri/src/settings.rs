@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs::create_dir_all, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use std::sync::RwLock;
@@ -21,21 +21,55 @@ impl From<u8> for ConcurrencySettings {
     }
 }
 
+pub fn config_file() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let path = dirs::config_dir()
+        .ok_or("Failed to get config directory.")?
+        .join(APP_NAME)
+        .join("settings.json");
+    Ok(path)
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct AppSettings {
-    max_concurrency: RwLock<ConcurrencySettings>,
-    config_path: PathBuf,
+    pub max_concurrency: RwLock<ConcurrencySettings>,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        let config_dir = dirs::config_dir().unwrap().join(APP_NAME);
-
         AppSettings {
             max_concurrency: RwLock::new(ConcurrencySettings::Auto),
-            config_path: config_dir.join("app_settings.json"),
         }
     }
 }
 
-impl AppSettings {}
+impl AppSettings {
+    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let config_path = config_file()?;
+
+        let parent = config_path
+            .parent()
+            .ok_or("File does not have parent directory.")?;
+
+        if !parent.exists() {
+            create_dir_all(parent)?;
+        }
+
+        let contents = serde_json::to_string_pretty(self)?;
+        std::fs::write(&config_path, contents)?;
+
+        Ok(())
+    }
+
+    pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
+        let path = config_file()?;
+        if !path.exists() {
+            let def = Self::default();
+            def.save()?;
+            return Ok(def);
+        }
+
+        let content = std::fs::read(path)?;
+        let settings = serde_json::from_slice(&content)?;
+        Ok(settings)
+    }
+}
