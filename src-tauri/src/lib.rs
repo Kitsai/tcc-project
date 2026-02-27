@@ -1,4 +1,9 @@
 pub mod polygon;
+pub mod project;
+pub mod runner;
+pub mod settings;
+
+const APP_NAME = "tcc-project";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
