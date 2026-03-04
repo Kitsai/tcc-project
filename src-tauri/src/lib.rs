@@ -21,7 +21,10 @@ pub fn run() {
             Ok(())
         })
         .manage(settings)
-        .invoke_handler(tauri::generate_handler![commands::save_settings,])
+        .invoke_handler(tauri::generate_handler![
+            commands::settings::save_settings,
+            commands::settings::get_settings,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
