@@ -4,7 +4,10 @@ use std::fmt;
 use std::time::Duration;
 
 pub trait Runner {
-    async fn execute(&self, request: ExecutionRequest) -> ExecutionResult;
+    fn execute(
+        &self,
+        request: ExecutionRequest,
+    ) -> impl std::future::Future<Output = ExecutionResult> + Send;
 }
 
 pub type ExecutionResult = Result<ExecutionInfo, ExecutionError>;
