@@ -1,2 +1,12 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+:root {
+    /* Light mode background */
+    --ui-bg: var(--color-slate-100);
+}
+
+/* Dark mode background override */
+.dark {
+    --ui-bg: var(--color-slate-900);
+}
