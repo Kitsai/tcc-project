@@ -11,7 +11,7 @@
             </template>
         </UHeader>
 
-        <hr />
+        <USeparator color="secondary" />
 
         <UMain>
             <NuxtLayout>
