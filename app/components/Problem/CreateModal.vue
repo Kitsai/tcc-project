@@ -3,7 +3,7 @@
         <UButton class="w-fit text-lg" label="Criar Problema" />
 
         <template #content>
-            <UHeader title="Crie um novo problema" to="" />
+            <UHeader title="Crie um novo problema" to="" :toggle="false" />
             <UForm
                 @submit="onSubmit"
                 class="flex flex-col gap-4 justify-center items-center py-20"
@@ -11,7 +11,7 @@
                 <UFormField label="Nome do Problema">
                     <UInput type="text" v-model="problemName" />
                 </UFormField>
-                <UFormField label="Local do Problema">
+                <UFormField>
                     <UButton
                         label="Local do Projeto"
                         color="secondary"
@@ -21,9 +21,19 @@
                         "
                         @click="onSelectPath"
                     />
-                    <LazyUInput disabled :value="problemFolder" v-else />
+                    <LazyUInput
+                        :value="problemFolder"
+                        v-else
+                        @click="onSelectPath"
+                    />
                 </UFormField>
 
+                <LazyUAlert
+                    :title="problems.error!"
+                    color="error"
+                    variant="subtle"
+                    v-if="problems.error !== null"
+                />
                 <UButton
                     class="w-fit text-lg px-5"
                     type="submit"
@@ -32,6 +42,7 @@
                         problemFolder === null ||
                         problemFolder.length === 0
                     "
+                    :loading="problems.loading"
                 >
                     Criar
                 </UButton>
@@ -48,6 +59,8 @@ const isOpen = ref(false);
 const problemName = ref("");
 const problemFolder = ref<string | null>(null);
 
+const problems = useProblems();
+
 async function onSelectPath() {
     problemFolder.value = await open({
         multiple: false,
@@ -56,18 +69,9 @@ async function onSelectPath() {
 }
 
 async function onSubmit() {
-    const { invoke } = useTauri();
+    await problems.create(problemName.value, problemFolder.value!);
 
-    try {
-        invoke("create_problem", {
-            name: problemName.value,
-            path: problemFolder.value,
-        });
-
-        close();
-    } catch {
-        console.log("err");
-    }
+    if (problems.error === null) close();
 }
 
 function close() {
