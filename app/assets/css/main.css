@@ -10,3 +10,9 @@
 .dark {
     --ui-bg: var(--color-slate-900);
 }
+
+html, body, #__nuxt {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
