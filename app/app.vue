@@ -1,22 +1,9 @@
 <template>
-    <UApp>
-        <UHeader
-            title="Placeholder"
-            to="/"
-            :toggle="false"
-            class="bg-slate-200 dark:bg-slate-950"
-        >
-            <template #right>
-                <UColorModeButton />
-            </template>
-        </UHeader>
-
-        <USeparator color="secondary" />
-
-        <UMain>
-            <NuxtLayout>
-                <NuxtPage />
-            </NuxtLayout>
-        </UMain>
-    </UApp>
+  <UApp class="h-screen flex flex-col overflow-hidden">
+    <AppHeader />
+    <USeparator color="secondary" />
+    <UMain class="flex-grow flex flex-col overflow-hidden">
+        <NuxtPage />
+    </UMain>
+  </UApp>
 </template>
