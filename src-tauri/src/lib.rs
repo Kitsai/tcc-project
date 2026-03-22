@@ -3,6 +3,7 @@ pub mod polygon;
 pub mod project;
 pub mod runner;
 pub mod settings;
+pub mod lsp;
 
 const APP_NAME: &str = "tcc-project";
 
