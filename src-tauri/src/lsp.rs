@@ -1,2 +1,4 @@
-mod protocol;
-mod server;
+mod binary_resolver;
+mod bridge;
+
+pub use bridge::LspBridge;
