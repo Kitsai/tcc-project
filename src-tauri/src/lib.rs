@@ -1,15 +1,25 @@
+use crate::lsp::{ClangdServer, LspBridge, LspRegistryBuilder, PyLspServer};
+
+use std::sync::Arc;
+
 pub mod commands;
+pub mod lsp;
 pub mod polygon;
 pub mod project;
 pub mod runner;
 pub mod settings;
-pub mod lsp;
 
 const APP_NAME: &str = "tcc-project";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let settings = settings::AppSettings::load().expect("Failed to load settings");
+    let registry = LspRegistryBuilder::instance()
+        .with(Arc::new(ClangdServer::new()))
+        .with(Arc::new(PyLspServer::new()))
+        .build();
+
+    let bridge = LspBridge::new(registry.clone());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -25,7 +35,13 @@ pub fn run() {
             Ok(())
         })
         .manage(settings)
-        .invoke_handler(tauri::generate_handler![commands::problems::create_problem])
+        .manage(registry)
+        .manage(bridge)
+        .invoke_handler(tauri::generate_handler![
+            commands::problems::create_problem,
+            commands::lsp::lsp_start,
+            commands::lsp::lsp_stop_all,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

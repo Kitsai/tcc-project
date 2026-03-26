@@ -34,6 +34,7 @@ tokio = { version = "1.49.0", features = [
   "process",
   "sync",
   "time",
+  "macros",
 ] }
 dirs = "6.0.0"
 async-trait = "0.1.89"
@@ -41,6 +42,8 @@ tauri-plugin-opener = "2.5.3"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 lsp-types = "0.97.0"
+tokio-tungstenite = "0.29.0"
+futures = "0.3.32"
 
 [dev-dependencies]
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
