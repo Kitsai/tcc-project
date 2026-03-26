@@ -25,6 +25,7 @@ impl Default for SimpleRunner {
     }
 }
 
+#[async_trait]
 impl Runner for SimpleRunner {
     async fn execute(&self, request: ExecutionRequest) -> ExecutionResult {
         let _permit = self

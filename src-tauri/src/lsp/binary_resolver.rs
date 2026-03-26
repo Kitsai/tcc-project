@@ -65,4 +65,26 @@ impl BinaryResolver {
             None
         }
     }
+
+    pub async fn get_system_binary(name: &str) -> Option<PathBuf> {
+        let result = tokio::process::Command::new(name)
+            .arg("--version")
+            .output()
+            .await;
+
+        if result.is_ok() {
+            println!("Found system {}", name);
+            Some(PathBuf::from(name))
+        } else {
+            None
+        }
+    }
+
+    pub async fn resolve_binary(name: &str) -> Option<PathBuf> {
+        if let Some(path) = Self::get_bundled_binary(name) {
+            return Some(path);
+        }
+
+        Self::get_system_binary(name).await
+    }
 }

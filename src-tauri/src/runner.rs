@@ -3,11 +3,11 @@ pub mod simple_runner;
 use std::fmt;
 use std::time::Duration;
 
+use async_trait::async_trait;
+
+#[async_trait]
 pub trait Runner {
-    fn execute(
-        &self,
-        request: ExecutionRequest,
-    ) -> impl std::future::Future<Output = ExecutionResult> + Send;
+    async fn execute(&self, request: ExecutionRequest) -> ExecutionResult;
 }
 
 pub type ExecutionResult = Result<ExecutionInfo, ExecutionError>;
