@@ -61,6 +61,7 @@ impl LspBridge {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .current_dir(&workspace_dir)
+            .kill_on_drop(true) // Ensure process dies when dropped or app exits
             .spawn()
             .map_err(|e| format!("Failed to spawn: {}", e))?;
 
@@ -78,9 +79,19 @@ impl LspBridge {
 
         println!("Starting {} on port {}", server.name(), port);
 
+        let active_servers_clone = Arc::clone(&self.active_servers);
+        let language_id_clone = language_id.to_string();
+
         tokio::spawn(async move {
+            // Accept exactly one connection for this server instance
             if let Ok((stream, _)) = listener.accept().await {
                 let _ = proxy_lsp_connection(stream, stdin, stdout).await;
+            }
+            
+            // Cleanup: remove from active servers so it can be restarted on next request
+            if let Ok(mut servers) = active_servers_clone.lock() {
+                servers.remove(&language_id_clone);
+                println!("LSP server for {} stopped and cleaned up", language_id_clone);
             }
         });
 
@@ -100,7 +111,9 @@ impl LspBridge {
 
     pub fn stop_all(&self) -> Result<(), String> {
         let mut servers = self.active_servers.lock().map_err(|e| e.to_string())?;
-        servers.clear();
+        for (_, mut instance) in servers.drain() {
+            let _ = instance._process.start_kill();
+        }
         Ok(())
     }
 }
@@ -116,48 +129,34 @@ async fn proxy_lsp_connection(
 
     let (mut ws_tx, mut ws_rx) = ws_stream.split();
 
-    let to_lsp = tokio::spawn(async move {
-        use tokio::io::AsyncWriteExt;
-
-        while let Some(Ok(msg)) = ws_rx.next().await {
-            match msg {
-                Message::Binary(data) => {
-                    if lsp_stdin.write_all(&data).await.is_err() {
-                        break;
-                    }
-                }
-                Message::Text(data) => {
-                    if lsp_stdin.write_all(data.as_bytes()).await.is_err() {
-                        break;
-                    }
-                }
-                _ => continue,
-            }
-            let _ = lsp_stdin.flush().await;
-        }
-    });
-
-    let to_ws = tokio::spawn(async move {
-        use tokio::io::AsyncReadExt;
-        let mut buf = [0u8; 8192];
-        loop {
-            match lsp_stdout.read(&mut buf).await {
-                Ok(0) => break,
-                Ok(n) => {
-                    let msg = Message::Binary(buf[..n].to_vec().into());
-                    if ws_tx.send(msg).await.is_err() {
-                        break;
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
+    // Use select! on inline async blocks to handle bidirectional traffic without extra spawns
     tokio::select! {
-        _ = to_lsp => {}
-        _ = to_ws => {}
+        res = async {
+            use tokio::io::AsyncWriteExt;
+            while let Some(Ok(msg)) = ws_rx.next().await {
+                match msg {
+                    Message::Binary(data) => {
+                        lsp_stdin.write_all(&data).await.map_err(|e| e.to_string())?;
+                    }
+                    Message::Text(data) => {
+                        lsp_stdin.write_all(data.as_bytes()).await.map_err(|e| e.to_string())?;
+                    }
+                    _ => continue,
+                }
+                lsp_stdin.flush().await.map_err(|e| e.to_string())?;
+            }
+            Ok::<(), String>(())
+        } => res,
+        res = async {
+            use tokio::io::AsyncReadExt;
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = lsp_stdout.read(&mut buf).await.map_err(|e| e.to_string())?;
+                if n == 0 { break; }
+                let msg = Message::Binary(buf[..n].to_vec().into());
+                ws_tx.send(msg).await.map_err(|e| e.to_string())?;
+            }
+            Ok::<(), String>(())
+        } => res,
     }
-
-    Ok(())
 }
