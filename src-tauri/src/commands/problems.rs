@@ -1,2 +1,2 @@
 #[tauri::command]
-pub fn create_problem(name: String, path: String) {}
+pub fn create_problem(_name: String, _path: String) {}

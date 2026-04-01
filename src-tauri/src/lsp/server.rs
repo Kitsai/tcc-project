@@ -18,6 +18,10 @@ pub trait LspServer: Send + Sync {
         Vec::new()
     }
 
+    fn custom_includes(&self) -> Vec<String> {
+        Vec::new()
+    }
+
     async fn is_available(&self) -> bool {
         BinaryResolver::resolve_binary(self.binary_name())
             .await

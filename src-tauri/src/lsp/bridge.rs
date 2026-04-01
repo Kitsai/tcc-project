@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::PathBuf,
     process::Stdio,
     sync::{Arc, Mutex, RwLock},
 };
@@ -55,11 +56,30 @@ impl LspBridge {
             .await
             .ok_or(format!("Binary not found: {}", server.binary_name()))?;
 
+        // 1. Create compile_flags.txt for clangd if needed
+        if server.name() == "clangd" {
+            let mut flags_path = PathBuf::from(&workspace_dir);
+            flags_path.push("compile_flags.txt");
+            
+            let mut content = String::from("-std=c++17\n");
+            for include in server.custom_includes() {
+                // Normalize to forward slashes for better clangd compatibility on Windows
+                let normalized = include.replace("\\", "/");
+                content.push_str(&format!("-I{}\n", normalized));
+            }
+            
+            if let Err(e) = std::fs::write(&flags_path, content) {
+                eprintln!("Warning: Failed to create compile_flags.txt at {:?}: {}", flags_path, e);
+            } else {
+                println!("Created compile_flags.txt at {:?}", flags_path);
+            }
+        }
+
         let mut child = Command::new(&binary_path)
             .args(&server.args())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::null()) // Don't inherit stderr to keep terminal clean
             .current_dir(&workspace_dir)
             .kill_on_drop(true) // Ensure process dies when dropped or app exits
             .spawn()
@@ -85,13 +105,18 @@ impl LspBridge {
         tokio::spawn(async move {
             // Accept exactly one connection for this server instance
             if let Ok((stream, _)) = listener.accept().await {
-                let _ = proxy_lsp_connection(stream, stdin, stdout).await;
+                if let Err(e) = proxy_lsp_connection(stream, stdin, stdout).await {
+                    eprintln!("LSP Proxy error for {}: {}", language_id_clone, e);
+                }
             }
-            
+
             // Cleanup: remove from active servers so it can be restarted on next request
             if let Ok(mut servers) = active_servers_clone.lock() {
                 servers.remove(&language_id_clone);
-                println!("LSP server for {} stopped and cleaned up", language_id_clone);
+                println!(
+                    "LSP server for {} stopped and cleaned up",
+                    language_id_clone
+                );
             }
         });
 
@@ -134,27 +159,62 @@ async fn proxy_lsp_connection(
         res = async {
             use tokio::io::AsyncWriteExt;
             while let Some(Ok(msg)) = ws_rx.next().await {
-                match msg {
-                    Message::Binary(data) => {
-                        lsp_stdin.write_all(&data).await.map_err(|e| e.to_string())?;
-                    }
-                    Message::Text(data) => {
-                        lsp_stdin.write_all(data.as_bytes()).await.map_err(|e| e.to_string())?;
-                    }
+                let data = match msg {
+                    Message::Binary(data) => data.to_vec(),
+                    Message::Text(data) => data.as_bytes().to_vec(),
                     _ => continue,
-                }
+                };
+                
+                // Add LSP Content-Length header
+                let header = format!("Content-Length: {}\r\n\r\n", data.len());
+                lsp_stdin.write_all(header.as_bytes()).await.map_err(|e| e.to_string())?;
+                lsp_stdin.write_all(&data).await.map_err(|e| e.to_string())?;
                 lsp_stdin.flush().await.map_err(|e| e.to_string())?;
             }
             Ok::<(), String>(())
         } => res,
         res = async {
             use tokio::io::AsyncReadExt;
-            let mut buf = [0u8; 8192];
+
+            let mut buffer = Vec::new();
+            let mut temp_buf = [0u8; 8192];
+
             loop {
-                let n = lsp_stdout.read(&mut buf).await.map_err(|e| e.to_string())?;
+                let n = lsp_stdout.read(&mut temp_buf).await.map_err(|e| e.to_string())?;
                 if n == 0 { break; }
-                let msg = Message::Binary(buf[..n].to_vec().into());
-                ws_tx.send(msg).await.map_err(|e| e.to_string())?;
+                buffer.extend_from_slice(&temp_buf[..n]);
+
+                while !buffer.is_empty() {
+                    let s = String::from_utf8_lossy(&buffer);
+                    if let Some(content_length_pos) = s.find("Content-Length: ") {
+                        // If there is junk before Content-Length, clear it
+                        if content_length_pos > 0 {
+                            buffer.drain(..content_length_pos);
+                            continue;
+                        }
+
+                        if let Some(header_end) = s.find("\r\n\r\n") {
+                            let start = header_end + 4;
+                            let length_str = s[16..header_end].trim();
+
+                            if let Ok(length) = length_str.parse::<usize>() {
+                                if buffer.len() >= start + length {
+                                    // Extract ONLY the JSON part (strip headers)
+                                    let json_data = buffer.drain(start..start + length).collect::<Vec<_>>();
+                                    // Remove the headers too
+                                    buffer.drain(..start);
+
+                                    let json_str = String::from_utf8_lossy(&json_data).to_string();
+                                    ws_tx.send(Message::Text(json_str.into())).await.map_err(|e| e.to_string())?;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    // If we reach here, we don't have a full message yet. 
+                    // Break the inner loop to read more data from the LSP.
+                    break;
+                }
             }
             Ok::<(), String>(())
         } => res,
