@@ -2,12 +2,20 @@ use async_trait::async_trait;
 
 use crate::lsp::server::LspServer;
 
-#[derive(Clone)]
-pub struct ClangdServer;
+#[derive(Clone, Default)]
+pub struct ClangdServer {
+    pub custom_includes: Vec<String>,
+}
 
 impl ClangdServer {
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    pub fn with_includes(includes: Vec<String>) -> Self {
+        Self {
+            custom_includes: includes,
+        }
     }
 }
 
@@ -29,11 +37,18 @@ impl LspServer for ClangdServer {
         "clangd"
     }
 
+    fn custom_includes(&self) -> Vec<String> {
+        self.custom_includes.clone()
+    }
+
     fn args(&self) -> Vec<String> {
         vec![
             "--background-index".to_string(),
             "--header-insertion=never".to_string(),
             "--completion-style=detailed".to_string(),
+            "--query-driver=*".to_string(),
+            "--log=error".to_string(), // Only log errors, not every AST build
+            "--offset-encoding=utf-16".to_string(), // Standard for many LSP clients
         ]
     }
 }

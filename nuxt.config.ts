@@ -16,6 +16,7 @@ export default defineNuxtConfig({
         "@tauri-apps/api/core",
         "@tauri-apps/api/event",
         "@tauri-apps/plugin-dialog",
+        "vscode-ws-jsonrpc"
       ],
     },
     clearScreen: false,

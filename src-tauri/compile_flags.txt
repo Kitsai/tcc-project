@@ -1,0 +1,3 @@
+-std=c++17
+-I/home/Kitsai/.tcc-project/includes
+-I/home/Kitsai/coding/tcc/tcc-project/src-tauri/resources/includes

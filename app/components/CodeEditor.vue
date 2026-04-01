@@ -34,6 +34,10 @@ onMounted(() => {
     scrollBeyondLastLine: false,
     fontSize: 14,
   });
+
+  const { initLsp } = useLsp();
+
+  initLsp("cpp", editor);
 });
 
 onUnmounted(() => {

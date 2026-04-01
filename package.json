@@ -12,18 +12,22 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.98",
-    "@nuxt/ui": "^4.5.1",
+    "@iconify-json/lucide": "^1.2.100",
+    "@nuxt/ui": "^4.6.0",
     "@pinia/nuxt": "0.11.3",
     "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "~2.6.0",
     "@tauri-apps/plugin-fs": "~2.4.5",
     "@tauri-apps/plugin-opener": "^2.5.3",
     "citty": "^0.1.6",
     "monaco-editor": "^0.55.1",
-    "nuxt": "^4.3.1",
-    "tailwindcss": "^4.2.1",
-    "vue": "^3.5.28",
+    "monaco-languageclient": "10.7.0",
+    "nuxt": "^4.4.2",
+    "tailwindcss": "^4.2.2",
+    "vscode-languageclient": "9.0.1",
+    "vscode-ws-jsonrpc": "3.5.0",
+    "vue": "^3.5.31",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
