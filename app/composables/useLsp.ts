@@ -37,13 +37,13 @@ export const useLsp = () => {
   const initLsp = async (languageId: string, editor: monaco.editor.IStandaloneCodeEditor) => {
     // For development, we use a fixed project root.
     const projectRoot = "/home/Kitsai/coding/tcc/tcc-project";
-    
+
     // 1. Get port from Rust
-    const port = await invoke<number>("lsp_start", { 
+    const port = await invoke<number>("lsp_start", {
       languageId,
-      workspaceDir: projectRoot 
+      workspaceDir: projectRoot
     });
-    
+
     const url = `ws://127.0.0.1:${port}`;
     console.log(`[LSP-Manual] Connecting to ${url}`);
     socket = new WebSocket(url);
@@ -56,7 +56,7 @@ export const useLsp = () => {
         if (msg.error) reject(msg.error);
         else resolve(msg.result);
       }
-      
+
       // Handle diagnostics
       if (msg.method === "textDocument/publishDiagnostics") {
         const diagnostics = msg.params.diagnostics;
@@ -76,7 +76,7 @@ export const useLsp = () => {
 
     socket.onopen = async () => {
       console.log("[LSP-Manual] Connected. Initializing...");
-      
+
       const fileUri = pathToUri(`${projectRoot}/test.cpp`);
 
       // LSP Initialize
@@ -145,6 +145,7 @@ export const useLsp = () => {
               label: item.label,
               kind: item.kind || monaco.languages.CompletionItemKind.Function,
               insertText: item.insertText || item.label,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               detail: item.detail,
               documentation: item.documentation
             }))
