@@ -79,9 +79,9 @@ impl LspBridge {
             .args(&server.args())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null()) // Don't inherit stderr to keep terminal clean
+            .stderr(Stdio::inherit()) // ENABLED FOR DEBUGGING
             .current_dir(&workspace_dir)
-            .kill_on_drop(true) // Ensure process dies when dropped or app exits
+            .kill_on_drop(true)
             .spawn()
             .map_err(|e| format!("Failed to spawn: {}", e))?;
 
