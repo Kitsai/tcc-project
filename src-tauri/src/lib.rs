@@ -5,7 +5,7 @@ use std::sync::Arc;
 pub mod commands;
 pub mod lsp;
 pub mod polygon;
-pub mod project;
+pub mod problem;
 pub mod runner;
 pub mod settings;
 
@@ -13,7 +13,7 @@ const APP_NAME: &str = "tcc-project";
 
 fn get_include_paths() -> Vec<String> {
     let mut includes = Vec::new();
-    
+
     // 1. Resolve user headers in ~/.tcc-project/includes
     if let Some(mut home) = dirs::home_dir() {
         home.push(".tcc-project");
@@ -21,7 +21,7 @@ fn get_include_paths() -> Vec<String> {
         let _ = std::fs::create_dir_all(&home);
         includes.push(home.to_string_lossy().to_string());
     }
-    
+
     // 2. Resolve bundled resource headers
     // During development, we use the absolute path to our src-tauri/resources/includes folder.
     // In production, Tauri's resource resolver should be used (handled in the LspBridge instead).
@@ -33,12 +33,12 @@ fn get_include_paths() -> Vec<String> {
         } else {
             resource_path.push("src-tauri/resources/includes");
         }
-        
+
         if resource_path.exists() {
             includes.push(resource_path.to_string_lossy().to_string());
         }
     }
-    
+
     includes
 }
 
