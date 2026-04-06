@@ -31,9 +31,13 @@ const setupEditor = async () => {
   await nextTick();
   if (!editorContainer.value) return;
 
-  // Cleanup old editor before creating new one
+  // Cleanup old editor and its model before creating new one
   if (editor) {
+    const oldModel = editor.getModel();
     editor.dispose();
+    if (oldModel) {
+      oldModel.dispose();
+    }
   }
 
   // Derive language from extension
@@ -66,7 +70,11 @@ watch(() => props.filePath, () => {
 
 onUnmounted(() => {
   if (editor) {
+    const model = editor.getModel();
     editor.dispose();
+    if (model) {
+      model.dispose();
+    }
     editor = null;
   }
 });
