@@ -79,7 +79,7 @@ impl LspBridge {
             .args(&server.args())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit()) // ENABLED FOR DEBUGGING
+            .stderr(Stdio::inherit()) 
             .current_dir(&workspace_dir)
             .kill_on_drop(true)
             .spawn()
@@ -105,18 +105,18 @@ impl LspBridge {
         tokio::spawn(async move {
             // Accept exactly one connection for this server instance
             if let Ok((stream, _)) = listener.accept().await {
-                if let Err(e) = proxy_lsp_connection(stream, stdin, stdout).await {
-                    eprintln!("LSP Proxy error for {}: {}", language_id_clone, e);
-                }
+                let _ = proxy_lsp_connection(stream, stdin, stdout).await;
             }
 
-            // Cleanup: remove from active servers so it can be restarted on next request
+            // FORCE CLEANUP: remove from active servers and kill process
             if let Ok(mut servers) = active_servers_clone.lock() {
-                servers.remove(&language_id_clone);
-                println!(
-                    "LSP server for {} stopped and cleaned up",
-                    language_id_clone
-                );
+                if let Some(mut instance) = servers.remove(&language_id_clone) {
+                    let _ = instance._process.start_kill();
+                    println!(
+                        "LSP server for {} killed and cleaned up",
+                        language_id_clone
+                    );
+                }
             }
         });
 
@@ -205,7 +205,9 @@ async fn proxy_lsp_connection(
                                     buffer.drain(..start);
 
                                     let json_str = String::from_utf8_lossy(&json_data).to_string();
-                                    ws_tx.send(Message::Text(json_str.into())).await.map_err(|e| e.to_string())?;
+                                    if ws_tx.send(Message::Text(json_str.into())).await.is_err() {
+                                        return Ok(()); // Client disconnected
+                                    }
                                     continue;
                                 }
                             }

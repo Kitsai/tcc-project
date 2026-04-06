@@ -28,4 +28,8 @@ impl LspServer for PyLspServer {
     fn binary_name(&self) -> &str {
         "pylsp"
     }
+
+    fn args(&self) -> Vec<String> {
+        vec!["-vv".to_string()]
+    }
 }

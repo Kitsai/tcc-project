@@ -34,13 +34,17 @@ export const useLsp = () => {
         if (!socket || socket.readyState !== WebSocket.OPEN) return reject(new Error("LSP Socket not open"));
         const id = nextId++;
         pendingRequests.set(id, { resolve, reject });
-        socket.send(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
+        const msg = { jsonrpc: "2.0", id, method, params };
+        console.log(`[LSP-Request] ${method}`, msg);
+        socket.send(JSON.stringify(msg));
       });
     };
 
     const sendNotification = (method: string, params: any) => {
       if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ jsonrpc: "2.0", method, params }));
+        const msg = { jsonrpc: "2.0", method, params };
+        console.log(`[LSP-Notify] ${method}`, msg);
+        socket.send(JSON.stringify(msg));
       }
     };
 
@@ -55,6 +59,10 @@ export const useLsp = () => {
 
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
+      if (msg.method !== "textDocument/publishDiagnostics") {
+        console.log(`[LSP-Response]`, msg);
+      }
+      
       if (msg.id !== undefined && pendingRequests.has(msg.id)) {
         const { resolve, reject } = pendingRequests.get(msg.id)!;
         pendingRequests.delete(msg.id);
@@ -81,19 +89,46 @@ export const useLsp = () => {
     socket.onopen = async () => {
       console.log(`[LSP-Manual] WebSocket Open for ${languageId}`);
       
+      const rootUri = pathToUri(workspaceDir);
       // Handshake
-      await sendRequest("initialize", {
-        processId: null,
-        rootUri: pathToUri(workspaceDir),
+      console.log(`[LSP-Manual] Sending initialize for ${languageId}`);
+      const initResult: any = await sendRequest("initialize", {
+        processId: 0,
+        rootPath: workspaceDir,
+        rootUri: rootUri,
         capabilities: {
           textDocument: {
             hover: { contentFormat: ["markdown", "plaintext"] },
-            completion: { completionItem: { snippetSupport: true } },
+            completion: { 
+              completionItem: { 
+                snippetSupport: true,
+                documentationFormat: ["markdown", "plaintext"]
+              } 
+            },
             publishDiagnostics: { relatedInformation: true }
           }
         }
       });
       sendNotification("initialized", {});
+
+      // For pylsp, it often helps to send a configuration notification
+      if (languageId === 'python') {
+        sendNotification("workspace/didChangeConfiguration", {
+          settings: {
+            pylsp: {
+              plugins: {
+                jedi_completion: { enabled: true },
+                jedi_hover: { enabled: true },
+                jedi_references: { enabled: true },
+                jedi_symbols: { enabled: true },
+              }
+            }
+          }
+        });
+      }
+
+      const serverTriggerChars = initResult?.capabilities?.completionProvider?.triggerCharacters || ['.'];
+      console.log(`[LSP-Manual] Server trigger characters for ${languageId}:`, serverTriggerChars);
 
       // Sync Document
       const model = editor.getModel();
@@ -132,11 +167,15 @@ export const useLsp = () => {
       });
 
       const compProv = monaco.languages.registerCompletionItemProvider(languageId, {
-        triggerCharacters: ['.', ':', '>', '#', '(', '<', '"'],
-        provideCompletionItems: async (model, position) => {
+        triggerCharacters: serverTriggerChars,
+        provideCompletionItems: async (model, position, context) => {
           const res: any = await sendRequest("textDocument/completion", {
             textDocument: { uri: fileUri },
-            position: { line: position.lineNumber - 1, character: position.column - 1 }
+            position: { line: position.lineNumber - 1, character: position.column - 1 },
+            context: {
+              triggerKind: context.triggerKind === monaco.languages.CompletionTriggerKind.TriggerCharacter ? 2 : 1,
+              triggerCharacter: context.triggerCharacter
+            }
           });
           if (!res) return null;
           const items = Array.isArray(res) ? res : res.items;
