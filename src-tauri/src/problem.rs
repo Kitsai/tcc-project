@@ -2,13 +2,17 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-pub struct Problem {
-    location: PathBuf,
-}
-
 #[derive(Serialize, Deserialize)]
-pub struct ProblemDto {
-    pub path: String,
+pub struct Problem {
+    pub name: String,
 }
 
-mod definition;
+impl Problem {
+    pub fn create(name: String) -> Self {
+        Problem { name }
+    }
+}
+
+mod registration;
+
+pub use registration::ProblemRegistration;
