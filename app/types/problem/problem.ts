@@ -1,3 +1,3 @@
 export interface Problem {
-  path: string
+  name: string
 }
