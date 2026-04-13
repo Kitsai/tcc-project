@@ -72,6 +72,7 @@ pub fn run() {
         .manage(bridge)
         .invoke_handler(tauri::generate_handler![
             commands::problems::create_problem,
+            commands::problems::load_problem,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::settings::get_app_paths,
