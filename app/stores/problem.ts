@@ -11,7 +11,7 @@ export const useProblems = defineStore('problem', {
   },
   actions: {
     async load(path: string) {
-      const { invoke, listen } = useTauri();
+      const { invoke } = useTauri();
       this.loading = true;
       this.error = null;
 

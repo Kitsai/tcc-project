@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
 };
 
+use serde_json::to_string;
 use tauri::webview::cookie::time::UtcDateTime;
 
 use crate::problem::Problem;
@@ -45,4 +46,40 @@ fn create_file_dirs(base_path: &Path) -> Result<(), String> {
     fs::create_dir(base_path.join("tests")).map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn load_problem(path: String) -> Result<Problem, String> {
+    let mut path = PathBuf::from_str(&path).map_err(|e| e.to_string())?;
+
+    if path.is_dir() {
+        path = find_problem_file(&path)?;
+    } else {
+        verify_path(&path)?;
+    }
+    let content = fs::read(path).map_err(|e| e.to_string())?;
+
+    serde_json::from_slice(&content).map_err(|e| e.to_string())
+}
+
+fn find_problem_file(path: &Path) -> Result<PathBuf, String> {
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().ends_with(".prblm") {
+                return Ok(entry.path());
+            }
+        }
+    }
+
+    Err("Could not find path to problem".to_string())
+}
+
+fn verify_path(path: &Path) -> Result<(), String> {
+    if let Some(extension) = path.extension() {
+        if extension == "prblm" {
+            return Ok(());
+        }
+    }
+
+    Err("File is not a problem".to_string())
 }
