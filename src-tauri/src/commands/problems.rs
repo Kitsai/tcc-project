@@ -52,11 +52,8 @@ fn create_file_dirs(base_path: &Path) -> Result<(), String> {
 pub fn load_problem(path: String) -> Result<Problem, String> {
     let mut path = PathBuf::from_str(&path).map_err(|e| e.to_string())?;
 
-    if path.is_dir() {
-        path = find_problem_file(&path)?;
-    } else {
-        verify_path(&path)?;
-    }
+    verify_path(&path)?;
+
     let content = fs::read(path).map_err(|e| e.to_string())?;
 
     serde_json::from_slice(&content).map_err(|e| e.to_string())
