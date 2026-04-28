@@ -1,26 +1,26 @@
-import Mathematics from "@tiptap/extension-mathematics";
+import { Mathematics, migrateMathStrings } from "@tiptap/extension-mathematics";
 import { InputRule } from "@tiptap/core";
 
 export const MathematicsWithInline = Mathematics.extend({
+  onCreate() {
+    // Automatically convert $...$ and $$...$$ in the initial content
+    if (this.editor) {
+      migrateMathStrings(this.editor);
+    }
+  },
+
   addInputRules() {
-    // Mathematics is a wrapper and doesn't have addInputRules itself, 
-    // but its sub-extensions might. We safely check here.
-    const parentInputRules = this.parent?.() || []
+    const type = this.editor.schema.nodes['inlineMath'];
+    if (!type) return [];
 
     return [
-      ...parentInputRules,
       // Rule for standard inline math: $latex$
       new InputRule({
         find: /(?<!\$)(\$([^$\s$][^$\n]*?[^$\s$])\$)(?!\$)/,
         handler: ({ state, range, match }) => {
-          const type = state.schema.nodes['inlineMath'];
-          if (!type) return;
-
           const latex = match[2]
-          const { tr } = state
-
           if (latex) {
-            tr.replaceWith(range.from, range.to, type.create({ latex }))
+            state.tr.replaceWith(range.from, range.to, type.create({ latex }))
           }
         },
       }),
@@ -28,17 +28,14 @@ export const MathematicsWithInline = Mathematics.extend({
       new InputRule({
         find: /(?<!\$)(\$([^$\s$])\$)(?!\$)/,
         handler: ({ state, range, match }) => {
-          const type = state.schema.nodes['inlineMath'];
-          if (!type) return;
-
           const latex = match[2]
-          const { tr } = state
-
           if (latex) {
-            tr.replaceWith(range.from, range.to, type.create({ latex }))
+            state.tr.replaceWith(range.from, range.to, type.create({ latex }))
           }
         },
       })
     ]
   }
 })
+
+export { migrateMathStrings };

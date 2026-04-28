@@ -30,7 +30,10 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 
+const problemStore = useProblems();
+const { currentProblem } = storeToRefs(problemStore);
 
 const state = reactive({
   name: '',
@@ -41,9 +44,21 @@ const state = reactive({
   tutorial: ''
 });
 
+// Sync local state when a new problem is loaded into the store
+watch(currentProblem, (problem) => {
+  if (problem) {
+    state.name = problem.stmt.name;
+    state.legend = problem.stmt.legend;
+    state.input_format = problem.stmt.input;
+    state.output_format = problem.stmt.output;
+    state.notes = problem.stmt.notes;
+    state.tutorial = problem.stmt.tutorial;
+  }
+}, { immediate: true });
+
 type Schema = typeof state
 
 function onSubmit() {
-
+  // Logic to save changes back to the store/backend would go here
 }
 </script>

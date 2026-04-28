@@ -9,9 +9,9 @@
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import 'katex/dist/katex.min.css'
-import { MathematicsWithInline } from '~/editor/extensions/mathematics';
+import { MathematicsWithInline, migrateMathStrings } from '~/editor/extensions/mathematics';
 
-const model = defineModel<string>("");
+const model = defineModel<string>();
 
 const emit = defineEmits(['update:modelValue']);
 
@@ -23,8 +23,16 @@ const editor = useEditor({
   ],
   onUpdate: ({ editor }) => {
     model.value = editor.getHTML()
-  }
+  },
 })
+
+watch(model, (newValue) => {
+  if (editor.value && newValue !== editor.value.getHTML()) {
+    editor.value.commands.setContent(newValue || '');
+    // Trigger conversion for the newly set content
+    migrateMathStrings(editor.value);
+  }
+});
 </script>
 
 <style scoped>
