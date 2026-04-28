@@ -7,7 +7,8 @@ export const useProblems = defineStore('problem', {
     error: null as string | null,
   }),
   getters: {
-    isProblemOpened: (state) => state.currentProblem !== null,
+    isProblemOpened: (state) => state.currentProblem != null,
+    currentName: (state) => state.currentProblem?.definition.name
   },
   actions: {
     async load(path: string) {
@@ -18,20 +19,20 @@ export const useProblems = defineStore('problem', {
       try {
         this.currentProblem = await invoke<Problem>('load_problem', { path });
       } catch (e) {
-        this.error = e instanceof Error ? e.message : "Falha ao carregar problema";
+        this.error = e instanceof Error ? e.message : "Falha ao carregar problema: " + e;
         console.error("Falha ao carregar problema: ", e);
       }
       this.loading = false;
     },
     async create(name: string, path: string) {
-      const { invoke, listen } = useTauri();
+      const { invoke } = useTauri();
       this.loading = true;
       this.error = null;
 
       try {
         this.currentProblem = await invoke<Problem>('create_problem', { name, path });
       } catch (e) {
-        this.error = e instanceof Error ? e.message : "Falha ao carregar problema";
+        this.error = e instanceof Error ? e.message : "Falha ao criar problema: " + e;
         console.error("Falha ao carregar problema: ", e);
       }
       this.loading = false;

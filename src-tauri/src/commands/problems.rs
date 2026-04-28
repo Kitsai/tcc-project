@@ -1,14 +1,14 @@
 use std::{
-    fs::{self, File},
-    io::BufWriter,
+    fs::{self},
     path::{Path, PathBuf},
     str::FromStr,
 };
 
+use log::debug;
 use serde_json::to_string;
 use tauri::webview::cookie::time::UtcDateTime;
 
-use crate::problem::Problem;
+use crate::problem::{Problem, ProblemModule, ProblemStatement};
 
 #[tauri::command]
 pub fn create_problem(name: String, path: String) -> Result<Problem, String> {
@@ -24,16 +24,13 @@ pub fn create_problem(name: String, path: String) -> Result<Problem, String> {
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
-    let problem = Problem::create(name);
+    debug!("Created folder to problem");
 
-    let problem_path = path.join(format!("{}.prblm", problem.name));
-
-    let file = File::create(problem_path).map_err(|e| e.to_string())?;
-    let writer = BufWriter::new(file);
-
-    serde_json::to_writer(writer, &problem).map_err(|e| e.to_string())?;
+    let problem = Problem::create(&name);
 
     create_file_dirs(&path)?;
+
+    problem.save(&path)?;
 
     Ok(problem)
 }
@@ -44,19 +41,18 @@ fn create_file_dirs(base_path: &Path) -> Result<(), String> {
     fs::create_dir(base_path.join("validators")).map_err(|e| e.to_string())?;
     fs::create_dir(base_path.join("solutions")).map_err(|e| e.to_string())?;
     fs::create_dir(base_path.join("tests")).map_err(|e| e.to_string())?;
+    fs::create_dir(base_path.join("statement")).map_err(|e| e.to_string())?;
 
     Ok(())
 }
 
 #[tauri::command]
 pub fn load_problem(path: String) -> Result<Problem, String> {
-    let mut path = PathBuf::from_str(&path).map_err(|e| e.to_string())?;
+    let path = PathBuf::from_str(&path).map_err(|e| e.to_string())?;
 
     verify_path(&path)?;
 
-    let content = fs::read(path).map_err(|e| e.to_string())?;
-
-    serde_json::from_slice(&content).map_err(|e| e.to_string())
+    Problem::load(&path)
 }
 
 fn find_problem_file(path: &Path) -> Result<PathBuf, String> {

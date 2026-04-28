@@ -20,7 +20,12 @@ async function onClick() {
       query: {
         path: path
       }
-    })
+    });
+    else {
+      const throwError = useErrorToast();
+
+      throwError(problems.error);
+    }
   }
 }
 </script>
