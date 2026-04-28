@@ -16,7 +16,11 @@ export default defineNuxtConfig({
         "@tauri-apps/api/core",
         "@tauri-apps/api/event",
         "@tauri-apps/plugin-dialog",
-        "vscode-ws-jsonrpc"
+        "vscode-ws-jsonrpc",
+        "@tauri-apps/api/path",
+        "@tiptap/vue-3",
+        "@tiptap/starter-kit",
+        "@tiptap/extension-mathematics"
       ],
     },
     clearScreen: false,
