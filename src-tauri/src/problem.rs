@@ -1,21 +1,29 @@
-use std::path::Path;
+use std::{
+    path::{Path, PathBuf},
+    sync::RwLock,
+};
 
 use log::debug;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Problem {
+    pub path: PathBuf,
     pub definition: ProblemDefinition,
     pub stmt: ProblemStatement,
 }
 
 impl Problem {
-    pub fn create(name: &str) -> Self {
+    pub fn create(name: &str, base_path: PathBuf) -> Self {
         let definition = ProblemDefinition::new(name);
         let stmt = ProblemStatement::new(name);
 
-        Problem { definition, stmt }
+        Problem { 
+            path: base_path, 
+            definition, 
+            stmt 
+        }
     }
 
     pub fn load(path: &Path) -> Result<Self, String> {
@@ -30,13 +38,17 @@ impl Problem {
         let stmt: ProblemStatement = ProblemStatement::load(base)?;
         debug!("Loaded problem statement");
 
-        Ok(Problem { definition, stmt })
+        Ok(Problem { 
+            path: base.to_path_buf(),
+            definition, 
+            stmt 
+        })
     }
 
-    pub fn save(&self, path: &Path) -> Result<(), String> {
-        self.definition.save(path)?;
+    pub fn save(&self) -> Result<(), String> {
+        self.definition.save(&self.path)?;
         debug!("Saved definition");
-        self.stmt.save(path)?;
+        self.stmt.save(&self.path)?;
         debug!("Saved statements");
 
         Ok(())
@@ -49,8 +61,11 @@ pub trait ProblemModule: Sized {
 }
 
 mod definition;
+mod manager;
 mod registration;
 mod statement;
+
+pub use manager::ProblemManager;
 
 pub use registration::ProblemRegistration;
 

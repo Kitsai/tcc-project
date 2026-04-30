@@ -1,4 +1,5 @@
 use crate::lsp::{ClangdServer, LspBridge, LspRegistryBuilder, PyLspServer};
+use crate::problem::ProblemManager;
 
 use std::sync::Arc;
 
@@ -46,12 +47,15 @@ fn get_include_paths() -> Vec<String> {
 pub fn run() {
     let settings = settings::AppSettings::load().expect("Failed to load settings");
 
-    let registry = LspRegistryBuilder::instance()
+    let lsp_registry = LspRegistryBuilder::instance()
         .with(Arc::new(ClangdServer::with_includes(get_include_paths())))
         .with(Arc::new(PyLspServer::new()))
         .build();
 
-    let bridge = LspBridge::new(registry.clone());
+    let lsp_bridge = LspBridge::new(lsp_registry.clone());
+
+    let problem_manager = ProblemManager::new();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -68,11 +72,13 @@ pub fn run() {
             Ok(())
         })
         .manage(settings)
-        .manage(registry)
-        .manage(bridge)
+        .manage(lsp_registry)
+        .manage(lsp_bridge)
+        .manage(problem_manager)
         .invoke_handler(tauri::generate_handler![
             commands::problems::create_problem,
             commands::problems::load_problem,
+            commands::problems::save_statement,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::settings::get_app_paths,

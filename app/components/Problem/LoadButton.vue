@@ -22,7 +22,7 @@ async function onClick() {
       }
     });
     else {
-      const throwError = useErrorToast();
+      const { throwError } = useCustomToast();
 
       throwError(problems.error);
     }

@@ -1,4 +1,4 @@
-import { Mathematics, migrateMathStrings } from "@tiptap/extension-mathematics";
+import { Mathematics, InlineMath, BlockMath, migrateMathStrings } from "@tiptap/extension-mathematics";
 import { InputRule } from "@tiptap/core";
 
 export const MathematicsWithInline = Mathematics.extend({

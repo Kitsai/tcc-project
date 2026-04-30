@@ -8,12 +8,12 @@
       <TexEditor v-model="state.legend"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
-    <UFormField label="Input format:" name="input_format">
-      <TexEditor v-model="state.input_format"
+    <UFormField label="Input format:" name="input">
+      <TexEditor v-model="state.input"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
-    <UFormField label="Output format:" name="output_format">
-      <TexEditor v-model="state.output_format"
+    <UFormField label="Output format:" name="output">
+      <TexEditor v-model="state.output"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
     <UFormField label="Notes:" name="notes">
@@ -25,21 +25,23 @@
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
 
-    <UButton type="submit" label="Save" class="w-fit text-lg px-4" />
+    <UButton type="submit" label="Save" :loading="loading" class="w-fit text-lg px-4" />
   </UForm>
 </template>
 
 <script setup lang="ts">
-import { storeToRefs } from 'pinia';
+import type { ProblemStatement } from '~/types/problem/problem';
 
 const problemStore = useProblems();
 const { currentProblem } = storeToRefs(problemStore);
 
-const state = reactive({
+const loading = ref(false);
+
+const state = reactive<ProblemStatement>({
   name: '',
   legend: '',
-  input_format: '',
-  output_format: '',
+  input: '',
+  output: '',
   notes: '',
   tutorial: ''
 });
@@ -49,16 +51,30 @@ watch(currentProblem, (problem) => {
   if (problem) {
     state.name = problem.stmt.name;
     state.legend = problem.stmt.legend;
-    state.input_format = problem.stmt.input;
-    state.output_format = problem.stmt.output;
+    state.input = problem.stmt.input;
+    state.output = problem.stmt.output;
     state.notes = problem.stmt.notes;
     state.tutorial = problem.stmt.tutorial;
   }
 }, { immediate: true });
 
-type Schema = typeof state
+async function onSubmit() {
+  const { invoke } = useTauri();
+  const { throwSuccess, throwError } = useCustomToast();
 
-function onSubmit() {
-  // Logic to save changes back to the store/backend would go here
+  loading.value = true;
+  try {
+    await invoke("save_statement", { stmt: { ...state } });
+
+    if (currentProblem.value) {
+      currentProblem.value.stmt = { ...state };
+    }
+
+    throwSuccess('Problem statement saved successfully');
+  } catch (e) {
+    throwError(String(e));
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

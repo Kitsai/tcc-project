@@ -6,12 +6,16 @@ use std::{
 
 use log::debug;
 use serde_json::to_string;
-use tauri::webview::cookie::time::UtcDateTime;
+use tauri::{webview::cookie::time::UtcDateTime, State};
 
-use crate::problem::{Problem, ProblemModule, ProblemStatement};
+use crate::problem::{Problem, ProblemManager, ProblemModule, ProblemStatement};
 
 #[tauri::command]
-pub fn create_problem(name: String, path: String) -> Result<Problem, String> {
+pub fn create_problem(
+    name: String,
+    path: String,
+    state: State<ProblemManager>,
+) -> Result<Problem, String> {
     let path = PathBuf::from_str(&path).map_err(|e| e.to_string())?;
 
     let _date = UtcDateTime::now().to_string();
@@ -26,11 +30,17 @@ pub fn create_problem(name: String, path: String) -> Result<Problem, String> {
 
     debug!("Created folder to problem");
 
-    let problem = Problem::create(&name);
+    let problem = Problem::create(&name, path.clone());
 
     create_file_dirs(&path)?;
 
-    problem.save(&path)?;
+    problem.save()?;
+
+    {
+        let mut current = state.current.write().map_err(|e| e.to_string())?;
+
+        *current = Some(problem.clone());
+    }
 
     Ok(problem)
 }
@@ -47,12 +57,20 @@ fn create_file_dirs(base_path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn load_problem(path: String) -> Result<Problem, String> {
+pub fn load_problem(path: String, state: State<ProblemManager>) -> Result<Problem, String> {
     let path = PathBuf::from_str(&path).map_err(|e| e.to_string())?;
 
     verify_path(&path)?;
 
-    Problem::load(&path)
+    let problem = Problem::load(&path)?;
+
+    {
+        let mut current = state.current.write().map_err(|e| e.to_string())?;
+
+        *current = Some(problem.clone());
+    }
+
+    Ok(problem)
 }
 
 fn find_problem_file(path: &Path) -> Result<PathBuf, String> {
@@ -75,4 +93,17 @@ fn verify_path(path: &Path) -> Result<(), String> {
     }
 
     Err("File is not a problem".to_string())
+}
+
+#[tauri::command]
+pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> Result<(), String> {
+    let mut current = state.current.write().map_err(|e| e.to_string())?;
+
+    if let Some(problem) = current.as_mut() {
+        problem.stmt = stmt;
+        problem.save()?;
+        Ok(())
+    } else {
+        Err("No problem open to save statement!".to_string())
+    }
 }
