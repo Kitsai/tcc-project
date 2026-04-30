@@ -54,7 +54,7 @@ async function onSubmit() {
       },
     });
   else {
-    const throwError = useErrorToast();
+    const { throwError } = useCustomToast();
 
     throwError(problems.error)
   }

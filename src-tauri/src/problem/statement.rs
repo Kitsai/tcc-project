@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ProblemModule;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ProblemStatement {
     pub name: String,
     pub legend: String,

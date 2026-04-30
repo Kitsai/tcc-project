@@ -1,4 +1,5 @@
 export interface Problem {
+  path: string,
   definition: ProblemDefinition,
   stmt: ProblemStatement,
 }
