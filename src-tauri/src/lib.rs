@@ -1,5 +1,6 @@
 use crate::lsp::{ClangdServer, LspBridge, LspRegistryBuilder, PyLspServer};
 use crate::problem::ProblemManager;
+use crate::runner::SimpleRunner;
 
 use std::sync::Arc;
 
@@ -56,6 +57,8 @@ pub fn run() {
 
     let problem_manager = ProblemManager::new();
 
+    let runner = SimpleRunner::default();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -75,6 +78,7 @@ pub fn run() {
         .manage(lsp_registry)
         .manage(lsp_bridge)
         .manage(problem_manager)
+        .manage(runner)
         .invoke_handler(tauri::generate_handler![
             commands::problems::create_problem,
             commands::problems::load_problem,
@@ -84,6 +88,7 @@ pub fn run() {
             commands::settings::get_app_paths,
             commands::settings::get_settings,
             commands::settings::save_settings,
+            commands::compile::check_languages,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

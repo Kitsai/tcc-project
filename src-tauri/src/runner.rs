@@ -1,5 +1,3 @@
-pub mod simple_runner;
-
 use std::fmt;
 use std::time::Duration;
 
@@ -12,17 +10,56 @@ pub trait Runner {
 
 pub type ExecutionResult = Result<ExecutionInfo, ExecutionError>;
 
+#[derive(Clone)]
+pub struct ExecutionRequest {
+    pub command: String,
+    pub args: Vec<String>,
+    pub input: String,
+    pub options: ExecutionOptions,
+}
+
+impl ExecutionRequest {
+    pub fn new(command: &str) -> Self {
+        Self {
+            command: command.to_owned(),
+            args: Vec::new(),
+            input: String::new(),
+            options: ExecutionOptions::default(),
+        }
+    }
+
+    pub fn with_arg(&mut self, arg: &str) -> &mut Self {
+        self.args.push(arg.to_owned());
+
+        self
+    }
+
+    pub fn with_options(&mut self, options: ExecutionOptions) -> &mut Self {
+        self.options = options;
+
+        self
+    }
+
+    pub fn with_input(&mut self, input: &str) -> &mut Self {
+        self.input = input.to_owned();
+
+        self
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct ExecutionOptions {
     pub timeout: Option<u64>,
     pub memory_limit: Option<usize>,
 }
 
-pub struct ExecutionRequest {
-    pub command: String,
-    pub args: Vec<String>,
-    pub input: String,
-    pub options: ExecutionOptions,
+impl Default for ExecutionOptions {
+    fn default() -> Self {
+        ExecutionOptions {
+            timeout: None,
+            memory_limit: None,
+        }
+    }
 }
 
 pub struct ExecutionInfo {
@@ -49,3 +86,7 @@ impl fmt::Display for ExecutionError {
 }
 
 impl std::error::Error for ExecutionError {}
+
+mod simple_runner;
+
+pub use simple_runner::SimpleRunner;
