@@ -47,19 +47,10 @@ impl ExecutionRequest {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct ExecutionOptions {
     pub timeout: Option<u64>,
     pub memory_limit: Option<usize>,
-}
-
-impl Default for ExecutionOptions {
-    fn default() -> Self {
-        ExecutionOptions {
-            timeout: None,
-            memory_limit: None,
-        }
-    }
 }
 
 use serde::{Deserialize, Serialize};

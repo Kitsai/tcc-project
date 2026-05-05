@@ -7,9 +7,10 @@ export interface ExecutionInfo {
   };
 }
 
-export type ExecutionError = 
+export type ExecutionError =
   | { TLE: { secs: number; nanos: number } }
   | { ME: number }
   | { OTHER: string };
 
 export type ExecutionResult = ExecutionInfo | ExecutionError;
+
