@@ -1,41 +1,48 @@
 import { type Problem } from "~/types/problem/problem"
 
-export const useProblems = defineStore('problem', {
-  state: () => ({
-    currentProblem: null as Problem | null,
-    loading: false,
-    error: null as string | null,
-  }),
-  getters: {
-    isProblemOpened: (state) => state.currentProblem != null,
-    currentName: (state) => state.currentProblem?.definition.name
-  },
-  actions: {
-    async load(path: string) {
-      const { invoke } = useTauri();
-      this.loading = true;
-      this.error = null;
+export const useProblems = defineStore('problem', () => {
+  const { invoke } = useTauri();
 
-      try {
-        this.currentProblem = await invoke<Problem>('load_problem', { path });
-      } catch (e) {
-        this.error = e instanceof Error ? e.message : "Falha ao carregar problema: " + e;
-        console.error("Falha ao carregar problema: ", e);
-      }
-      this.loading = false;
-    },
-    async create(name: string, path: string) {
-      const { invoke } = useTauri();
-      this.loading = true;
-      this.error = null;
+  const currentProblem = ref<Problem | null>(null);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
 
-      try {
-        this.currentProblem = await invoke<Problem>('create_problem', { name, path });
-      } catch (e) {
-        this.error = e instanceof Error ? e.message : "Falha ao criar problema: " + e;
-        console.error("Falha ao carregar problema: ", e);
-      }
-      this.loading = false;
+  const isProblemOpened = computed(() => currentProblem.value !== null);
+  const currentName = computed(() => currentProblem.value?.definition.name);
+
+  async function load(path: string) {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      currentProblem.value = await invoke<Problem>('load_problem', { path });
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : "Falha ao carregar problema: " + e;
+      console.error("Falha ao carregar problema: ", e);
     }
+    loading.value = false;
+
   }
+
+  async function create(name: string, path: string) {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      currentProblem.value = await invoke<Problem>('create_problem', { name, path });
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : "Falha ao criar problema: " + e;
+      console.error("Falha ao carregar problema: ", e);
+    }
+    loading.value = false;
+  }
+  return {
+    currentProblem,
+    loading,
+    error,
+    isProblemOpened,
+    currentName,
+    load,
+    create
+  };
 });

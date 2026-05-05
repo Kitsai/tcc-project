@@ -62,10 +62,23 @@ impl Default for ExecutionOptions {
     }
 }
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExecutionInfo {
-    pub output: String,
-    pub error: String,
+    pub stdout: String,
+    pub stderr: String,
     pub execution_time: Duration,
+}
+
+impl fmt::Display for ExecutionInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Stdout: {}\nStderr: {}\nDuration: {:?}\n",
+            self.stdout, self.stderr, self.execution_time,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]

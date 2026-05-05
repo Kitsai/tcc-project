@@ -23,11 +23,12 @@ const items = computed<NavigationMenuItem[]>(() => [
   },
 ]);
 
-const problems = useProblems();
+const problemStore = useProblems();
+const { isProblemOpened, currentName } = storeToRefs(problemStore);
 
 const problemName = computed(() =>
-  problems.isProblemOpened
-    ? " - " + problems.currentName
+  isProblemOpened.value
+    ? " - " + currentName.value
     : "",
 );
 </script>

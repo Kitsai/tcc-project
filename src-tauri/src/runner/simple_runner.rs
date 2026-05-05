@@ -71,8 +71,8 @@ impl Runner for SimpleRunner {
         let duration = now.elapsed();
 
         Ok(ExecutionInfo {
-            output: String::from_utf8_lossy(&result.stdout).to_string(),
-            error: String::from_utf8_lossy(&result.stderr).to_string(),
+            stdout: String::from_utf8_lossy(&result.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&result.stderr).to_string(),
             execution_time: duration,
         })
     }
@@ -112,8 +112,8 @@ mod tests {
         };
 
         let result = runner.execute(request).await.expect("Execution failed");
-        assert!(result.output.contains("hello"));
-        assert!(result.error.trim().is_empty());
+        assert!(result.stdout.contains("hello"));
+        assert!(result.stderr.trim().is_empty());
     }
 
     #[tokio::test]
@@ -130,7 +130,7 @@ mod tests {
         };
 
         let result = runner.execute(request).await.expect("Execution failed");
-        assert!(result.error.contains("error"));
+        assert!(result.stderr.contains("error"));
     }
 
     #[tokio::test]
@@ -158,7 +158,7 @@ mod tests {
         };
 
         let result = runner.execute(request).await.expect("Execution failed");
-        assert!(result.output.contains("hello from stdin"));
+        assert!(result.stdout.contains("hello from stdin"));
     }
 
     #[tokio::test]

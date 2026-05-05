@@ -1,13 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
-import {
-  appConfigDir,
-  appDataDir,
-  appLocalDataDir,
-  resourceDir,
-} from "@tauri-apps/api/path";
 
-export default defineNuxtPlugin((nuxtApp) => {
+export const useTauri = defineStore('tauri', () => {
   const isTauri =
     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
   if (!isTauri) {
@@ -16,8 +10,6 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   return {
-    provide: {
-      tauri: { invoke, listen, emit, isTauri },
-    },
+    invoke, listen, emit, isTauri,
   };
 });
