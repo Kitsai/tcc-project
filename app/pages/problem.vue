@@ -20,5 +20,8 @@ const navItems = [
   {
     label: 'Checker', to: { path: '/problem/checker' }
   },
+  {
+    label: 'Validator', to: { path: '/problem/validator' }
+  }
 ];
 </script>
