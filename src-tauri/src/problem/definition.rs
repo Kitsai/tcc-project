@@ -7,7 +7,7 @@ use super::ProblemModule;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProblemDefinition {
-    name: String,
+    pub name: String,
 }
 
 impl ProblemDefinition {

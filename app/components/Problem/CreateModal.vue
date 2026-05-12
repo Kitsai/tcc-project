@@ -50,7 +50,7 @@ async function onSubmit() {
     navigateTo({
       path: "/problem",
       query: {
-        path: problemFolder.value! + problemName.value!,
+        path: problemFolder.value! + "/" + problemName.value!,
       },
     });
   else {

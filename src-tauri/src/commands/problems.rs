@@ -5,10 +5,9 @@ use std::{
 };
 
 use log::debug;
-use serde_json::to_string;
 use tauri::{webview::cookie::time::UtcDateTime, State};
 
-use crate::problem::{Problem, ProblemManager, ProblemModule, ProblemStatement};
+use crate::problem::{Problem, ProblemManager, ProblemStatement};
 
 #[tauri::command]
 pub fn create_problem(
@@ -106,4 +105,55 @@ pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> R
     } else {
         Err("No problem open to save statement!".to_string())
     }
+}
+
+#[tauri::command]
+pub fn get_files_from(dir: String, state: State<ProblemManager>) -> Result<Vec<String>, String> {
+    let mut files: Vec<String> = Vec::new();
+
+    let mut path = PathBuf::new();
+
+    {
+        let curr = state.current.read().map_err(|e| e.to_string())?;
+
+        if let Some(problem) = &*curr {
+            path = problem.path.join(dir);
+        }
+    }
+
+    let dir_entries = fs::read_dir(path).map_err(|e| e.to_string())?;
+
+    for entry in dir_entries.flatten() {
+        files.push(entry.file_name().to_string_lossy().to_string());
+    }
+
+    Ok(files)
+}
+
+#[tauri::command]
+pub fn create_file_in(
+    dir: String,
+    filename: String,
+    state: State<ProblemManager>,
+) -> Result<(), String> {
+    let mut path = PathBuf::new();
+
+    {
+        let curr = state.current.read().map_err(|e| e.to_string())?;
+
+        if let Some(problem) = &*curr {
+            path = problem.path.join(dir);
+        } else {
+            return Err("No problem open".to_string());
+        }
+    }
+
+    let file_path = path.join(filename);
+    if file_path.exists() {
+        return Err("File already exists".to_string());
+    }
+
+    fs::write(file_path, "").map_err(|e| e.to_string())?;
+
+    Ok(())
 }

@@ -1,4 +1,4 @@
-use std::sync::RwLock;
+use std::{path::PathBuf, sync::RwLock};
 
 use super::Problem;
 
@@ -11,5 +11,11 @@ impl ProblemManager {
         ProblemManager {
             current: RwLock::new(None),
         }
+    }
+}
+
+impl Default for ProblemManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
