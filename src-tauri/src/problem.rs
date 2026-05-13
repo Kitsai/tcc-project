@@ -19,10 +19,10 @@ impl Problem {
         let definition = ProblemDefinition::new(name);
         let stmt = ProblemStatement::new(name);
 
-        Problem { 
-            path: base_path, 
-            definition, 
-            stmt 
+        Problem {
+            path: base_path,
+            definition,
+            stmt,
         }
     }
 
@@ -38,10 +38,10 @@ impl Problem {
         let stmt: ProblemStatement = ProblemStatement::load(base)?;
         debug!("Loaded problem statement");
 
-        Ok(Problem { 
+        Ok(Problem {
             path: base.to_path_buf(),
-            definition, 
-            stmt 
+            definition,
+            stmt,
         })
     }
 
@@ -61,6 +61,7 @@ pub trait ProblemModule: Sized {
 }
 
 mod definition;
+mod dir;
 mod manager;
 mod registration;
 mod statement;
@@ -71,3 +72,5 @@ pub use registration::ProblemRegistration;
 
 pub use definition::ProblemDefinition;
 pub use statement::ProblemStatement;
+
+pub use dir::ProblemDir;

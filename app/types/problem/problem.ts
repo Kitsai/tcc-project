@@ -5,7 +5,9 @@ export interface Problem {
 }
 
 export interface ProblemDefinition {
-  name: string
+  name: string,
+  checker: string | undefined,
+  validator: string | undefined,
 }
 
 export interface ProblemStatement {

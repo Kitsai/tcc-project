@@ -3,16 +3,17 @@
     <UContainer class="py-2 flex justify-end">
       <UButton type="button" label="Add File" :loading="tableLoading" @click="onAddFile" />
     </UContainer>
-    <UTable :loading="tableLoading" :data="files" :columns="columns" :table-options="{ enableMultiRowSelection: false }"
-      @select="onSelect" :ui="{ tr: 'border-l-4 border-transparent transition-all cursor-pointer' }" :meta="{
+    <UTable v-model:row-selection="selection" :loading="tableLoading" :data="files" :columns="columns"
+      :table-options="{ enableMultiRowSelection: false }"
+      :ui="{ tr: 'border-l-4 border-transparent transition-all cursor-pointer' }" :meta="{
         class: {
-          tr: (row: any) => selected?.id === row.id ? '!bg-primary-50 dark:!bg-primary-950/50 !border-l-primary-500' : ''
+          tr: (row: any) => selection[row.id] ? '!bg-primary-50 dark:!bg-primary-950/50 !border-l-primary-500' : ''
         }
-      }">
+      }" @select="onSelect">
       <template #fileName-cell="{ row }">
         <div class="flex items-center gap-2">
-          <UIcon v-if="selected?.id === row.id" name="i-lucide-check-circle-2" class="size-4 text-primary-500" />
-          <span :class="{ 'font-bold text-primary-600 dark:text-primary-400': selected?.id === row.id }">
+          <UIcon v-if="selection[row.id]" name="i-lucide-check-circle-2" class="size-4 text-primary-500" />
+          <span :class="{ 'font-bold text-primary-600 dark:text-primary-400': selection[row.id] }">
             {{ row.original }}
           </span>
         </div>
@@ -23,6 +24,11 @@
           <UTooltip text="Edit the file">
             <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit(row.original)" />
           </UTooltip>
+          <USlideover v-modal="isEditorOpen" title="Code Editor" close-icon="i-lucide-x">
+            <template>
+              <LazyServerPlaceholder class="h-full w-full" v-if="isEditorOpen" :file-path="editingPath" />
+            </template>
+          </USlideover>
         </div>
       </template>
     </UTable>
@@ -33,7 +39,7 @@
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
 const props = defineProps<{
-  type: 'validators' | 'checkers' | 'generators' | 'solutions'
+  type: 'validators' | 'checkers'
 }>();
 
 const columns: TableColumn<string>[] = [
@@ -48,30 +54,69 @@ const columns: TableColumn<string>[] = [
   }
 ]
 
-const tableLoading = ref(false);
-
+const tableLoading = ref(true);
 const files = ref<string[]>([]);
 
-const selected = ref<TableRow<string> | null>(null);
+const selection = ref<Record<string, boolean>>({});
+
+const isEditorOpen = ref(false);
+const editingPath = ref('');
 
 const { invoke } = useTauri();
+const { throwError } = useCustomToast();
+const problems = useProblems();
 
 async function getFiles() {
+  console.log("[Files.vue] getFiles called for type:", props.type);
   tableLoading.value = true;
 
   try {
-    files.value = await invoke<string[]>("get_files_from", { dir: props.type })
+    const fetchedFiles = await invoke<string[]>("get_files_from", { dir: props.type })
+    console.log("[Files.vue] fetchedFiles:", fetchedFiles);
+    files.value = fetchedFiles;
+    applyAutoSelection();
   } catch (e) {
-    console.error(e);
+    console.error("[Files.vue] Error in getFiles:", e);
   }
 
   tableLoading.value = false;
 }
 
-function onSelect(e: Event, row: TableRow<string>) {
-  if (selected.value) selected.value.toggleSelected(false);
-  row.toggleSelected(true);
-  selected.value = row;
+function applyAutoSelection() {
+  if (problems.currentProblem) {
+    const savedFileName = props.type === "validators"
+      ? problems.currentProblem.definition.validator
+      : problems.currentProblem.definition.checker;
+
+    console.log("[Files.vue] Attempting auto-select. Saved:", savedFileName);
+
+    if (savedFileName) {
+      const index = files.value.findIndex(f => f === savedFileName);
+      console.log("[Files.vue] Found index:", index);
+      if (index !== -1) {
+        selection.value = { [index.toString()]: true };
+        console.log("[Files.vue] selection.value updated:", selection.value);
+      }
+    }
+  } else {
+    console.log("[Files.vue] currentProblem is not loaded yet");
+  }
+}
+
+async function onSelect(_: Event, row: TableRow<string>) {
+  selection.value = { [row.id]: true };
+
+  try {
+    await invoke("select_problem_file", { dir: props.type, file: row.original });
+
+    if (problems.currentProblem) {
+      if (props.type === "checkers") problems.currentProblem.definition.checker = row.original;
+      else problems.currentProblem.definition.validator = row.original;
+    }
+  } catch (e) {
+    selection.value = {};
+    throwError("Failed to select file");
+  }
 }
 
 
@@ -80,10 +125,11 @@ function onAddFile() {
 }
 
 function onEdit(filename: string) {
-  console.log("Editing file " + filename);
+  editingPath.value = filename;
+  isEditorOpen.value = true;
 }
 
-getFiles();
-
-
+onMounted(() => {
+  getFiles();
+});
 </script>

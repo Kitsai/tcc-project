@@ -84,6 +84,7 @@ pub fn run() {
             commands::problems::load_problem,
             commands::problems::save_statement,
             commands::problems::get_files_from,
+            commands::problems::select_problem_file,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::settings::get_app_paths,

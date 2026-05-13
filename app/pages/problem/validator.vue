@@ -4,17 +4,20 @@
       <UInputMenu v-model="languageSelect" :items="languageOptions" />
     </UFormField>
     <UTabs :items="tabs">
+
       <template #files>
         <ProblemFiles type="validators" />
       </template>
+
       <template #tests>
+        <LazyProblemValidatorTests />
       </template>
     </UTabs>
   </div>
 </template>
 
 <script setup lang="ts">
-const languageOptions = ref(['Autodetect', 'cpp.g++17', 'cpp.g++14', 'python.3']);
+const languageOptions = ['Autodetect', 'cpp.g++17', 'cpp.g++14', 'python.3'];
 
 const languageSelect = ref("Autodetect");
 

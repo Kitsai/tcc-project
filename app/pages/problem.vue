@@ -4,7 +4,7 @@
       class="px-4 border-b border-gray-200 dark:border-gray-800 justify-end" />
 
     <div class="grow overflow-auto p-4">
-      <NuxtPage />
+      <NuxtPage keepalive />
     </div>
   </div>
 </template>

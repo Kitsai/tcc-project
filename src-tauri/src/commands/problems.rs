@@ -1,13 +1,15 @@
 use std::{
+    fmt::Display,
     fs::{self},
     path::{Path, PathBuf},
     str::FromStr,
 };
 
 use log::debug;
+use serde::{Deserialize, Serialize};
 use tauri::{webview::cookie::time::UtcDateTime, State};
 
-use crate::problem::{Problem, ProblemManager, ProblemStatement};
+use crate::problem::{Problem, ProblemDir, ProblemManager, ProblemModule, ProblemStatement};
 
 #[tauri::command]
 pub fn create_problem(
@@ -111,15 +113,15 @@ pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> R
 pub fn get_files_from(dir: String, state: State<ProblemManager>) -> Result<Vec<String>, String> {
     let mut files: Vec<String> = Vec::new();
 
-    let mut path = PathBuf::new();
-
-    {
+    let path = {
         let curr = state.current.read().map_err(|e| e.to_string())?;
 
         if let Some(problem) = &*curr {
-            path = problem.path.join(dir);
+            problem.path.join(dir)
+        } else {
+            return Ok(files);
         }
-    }
+    };
 
     let dir_entries = fs::read_dir(path).map_err(|e| e.to_string())?;
 
@@ -132,17 +134,17 @@ pub fn get_files_from(dir: String, state: State<ProblemManager>) -> Result<Vec<S
 
 #[tauri::command]
 pub fn create_file_in(
-    dir: String,
+    dir: ProblemDir,
     filename: String,
     state: State<ProblemManager>,
 ) -> Result<(), String> {
-    let mut path = PathBuf::new();
+    let path;
 
     {
         let curr = state.current.read().map_err(|e| e.to_string())?;
 
         if let Some(problem) = &*curr {
-            path = problem.path.join(dir);
+            path = problem.path.join(dir.as_ref());
         } else {
             return Err("No problem open".to_string());
         }
@@ -156,4 +158,33 @@ pub fn create_file_in(
     fs::write(file_path, "").map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn select_problem_file(
+    dir: ProblemDir,
+    file: String,
+    state: State<ProblemManager>,
+) -> Result<(), String> {
+    let mut current = state.current.write().map_err(|e| e.to_string())?;
+
+    if let Some(problem) = current.as_mut() {
+        let full_path = problem.path.join(dir.as_ref()).join(&file);
+
+        if !full_path.exists() {
+            return Err(format!("File does not exist: {:?}", full_path));
+        }
+
+        match dir {
+            ProblemDir::Validators => problem.definition.validator = Some(file),
+            ProblemDir::Checkers => problem.definition.checker = Some(file),
+            _ => return Err(format!("Dir {} is not valid", dir)),
+        }
+
+        problem.save()?;
+
+        Ok(())
+    } else {
+        Err("No problem open to select file".to_string())
+    }
 }

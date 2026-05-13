@@ -33,4 +33,7 @@ export default defineNuxtConfig({
     },
   },
   ignore: ["**/src-tauri/**"],
+  app: {
+    pageTransition: { name: 'page', mode: 'out-in' }
+  }
 });

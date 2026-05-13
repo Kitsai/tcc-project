@@ -1,6 +1,5 @@
 use std::{fs, io::BufWriter};
 
-use log::debug;
 use serde::{Deserialize, Serialize};
 
 use super::ProblemModule;
@@ -8,12 +7,16 @@ use super::ProblemModule;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProblemDefinition {
     pub name: String,
+    pub checker: Option<String>,
+    pub validator: Option<String>,
 }
 
 impl ProblemDefinition {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
+            checker: None,
+            validator: None,
         }
     }
 }
