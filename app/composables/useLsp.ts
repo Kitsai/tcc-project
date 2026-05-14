@@ -11,14 +11,11 @@ export const useLsp = () => {
     return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`;
   };
 
-  const initLsp = async (filePath: string, editor: monaco.editor.IStandaloneCodeEditor) => {
-    // 1. Determine Language and Workspace from Path
+  const initLsp = async (filePath: string, workspaceDir: string, editor: monaco.editor.IStandaloneCodeEditor) => {
+    // 1. Determine Language from Path
     const ext = filePath.split('.').pop()?.toLowerCase();
     const languageId = ext === 'py' ? 'python' : 'cpp';
     
-    // Simplistic workspace resolution
-    const lastSlash = filePath.lastIndexOf('/');
-    const workspaceDir = lastSlash !== -1 ? filePath.substring(0, lastSlash) : '.';
     const fileUri = pathToUri(filePath);
 
     console.log(`[LSP-Manual] Initializing for ${languageId} at ${workspaceDir}`);
@@ -117,7 +114,12 @@ export const useLsp = () => {
           settings: {
             pylsp: {
               plugins: {
-                jedi_completion: { enabled: true },
+                jedi_completion: { 
+                  enabled: true,
+                  include_params: true,
+                  include_class_objects: true,
+                  fuzzy: true
+                },
                 jedi_hover: { enabled: true },
                 jedi_references: { enabled: true },
                 jedi_symbols: { enabled: true },
@@ -154,41 +156,105 @@ export const useLsp = () => {
         });
       }
 
-      // Providers
+      console.log(`[LSP-Manual] Registering providers for ${languageId}`);
+
       const hoverProv = monaco.languages.registerHoverProvider(languageId, {
         provideHover: async (model, position) => {
-          const res: any = await sendRequest("textDocument/hover", {
-            textDocument: { uri: fileUri },
-            position: { line: position.lineNumber - 1, character: position.column - 1 }
-          });
-          if (!res || !res.contents) return null;
-          return { contents: Array.isArray(res.contents) ? res.contents : [res.contents] };
+          if (model.uri.toString() !== fileUri) {
+            console.log(`[LSP-Hover] URI Mismatch: ${model.uri.toString()} !== ${fileUri}`);
+            return null;
+          }
+          
+          try {
+            const res: any = await sendRequest("textDocument/hover", {
+              textDocument: { uri: fileUri },
+              position: { line: position.lineNumber - 1, character: position.column - 1 }
+            });
+            if (!res || !res.contents) return null;
+            return { contents: Array.isArray(res.contents) ? res.contents : [res.contents] };
+          } catch (e) {
+            console.error(`[LSP-Hover] Error:`, e);
+            return null;
+          }
         }
       });
 
       const compProv = monaco.languages.registerCompletionItemProvider(languageId, {
         triggerCharacters: serverTriggerChars,
         provideCompletionItems: async (model, position, context) => {
-          const res: any = await sendRequest("textDocument/completion", {
-            textDocument: { uri: fileUri },
-            position: { line: position.lineNumber - 1, character: position.column - 1 },
-            context: {
-              triggerKind: context.triggerKind === monaco.languages.CompletionTriggerKind.TriggerCharacter ? 2 : 1,
-              triggerCharacter: context.triggerCharacter
-            }
-          });
-          if (!res) return null;
-          const items = Array.isArray(res) ? res : res.items;
-          return {
-            suggestions: items.map((item: any) => ({
-              label: item.label,
-              kind: item.kind || monaco.languages.CompletionItemKind.Function,
-              insertText: item.insertText || item.label,
-              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-              detail: item.detail,
-              documentation: item.documentation
-            }))
+          if (model.uri.toString() !== fileUri) {
+            console.log(`[LSP-Completion] URI Mismatch: ${model.uri.toString()} !== ${fileUri}`);
+            return { suggestions: [] };
+          }
+
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn
           };
+
+          console.log(`[LSP-Completion] Requesting for ${languageId} at ${position.lineNumber}:${position.column}, prefix: "${word.word}"`);
+          
+          try {
+            const res: any = await sendRequest("textDocument/completion", {
+              textDocument: { uri: fileUri },
+              position: { line: position.lineNumber - 1, character: position.column - 1 },
+              context: {
+                triggerKind: context.triggerKind === monaco.languages.CompletionTriggerKind.TriggerCharacter ? 2 : 1,
+                triggerCharacter: context.triggerCharacter
+              }
+            });
+            
+            if (!res) {
+              console.log(`[LSP-Completion] No results from server`);
+              return { suggestions: [] };
+            }
+            
+            const items = Array.isArray(res) ? res : res.items;
+            console.log(`[LSP-Completion] Got ${items?.length || 0} items`);
+            if (items && items.length > 0) {
+              console.log(`[LSP-Completion] First item sample:`, items[0]);
+            }
+
+            if (!items || items.length === 0) return { suggestions: [] };
+
+            return {
+              suggestions: items.map((item: any) => {
+                // If the server provides a textEdit, use it for the range and text
+                const textEdit = item.textEdit;
+                const insertText = textEdit ? textEdit.newText : (item.insertText || item.label);
+                
+                let itemRange = range;
+                if (textEdit && textEdit.range) {
+                  itemRange = {
+                    startLineNumber: textEdit.range.start.line + 1,
+                    startColumn: textEdit.range.start.character + 1,
+                    endLineNumber: textEdit.range.end.line + 1,
+                    endColumn: textEdit.range.end.character + 1
+                  };
+                }
+
+                return {
+                  label: item.label,
+                  kind: item.kind || monaco.languages.CompletionItemKind.Function,
+                  insertText: insertText,
+                  insertTextRules: item.insertTextFormat === 2 
+                    ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet 
+                    : monaco.languages.CompletionItemInsertTextRule.None,
+                  detail: item.detail,
+                  documentation: item.documentation,
+                  range: itemRange,
+                  sortText: item.sortText,
+                  filterText: item.filterText
+                };
+              })
+            };
+          } catch (e) {
+            console.error(`[LSP-Completion] Error:`, e);
+            return { suggestions: [] };
+          }
         }
       });
 

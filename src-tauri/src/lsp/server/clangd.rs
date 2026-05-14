@@ -5,16 +5,14 @@ use crate::lsp::server::LspServer;
 #[derive(Clone, Default)]
 pub struct ClangdServer {
     pub custom_includes: Vec<String>,
+    pub compile_commands_dir: Option<String>,
 }
 
 impl ClangdServer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_includes(includes: Vec<String>) -> Self {
+    pub fn new(includes: Vec<String>, compile_commands_dir: Option<String>) -> Self {
         Self {
             custom_includes: includes,
+            compile_commands_dir,
         }
     }
 }
@@ -42,13 +40,19 @@ impl LspServer for ClangdServer {
     }
 
     fn args(&self) -> Vec<String> {
-        vec![
+        let mut args = vec![
             "--background-index".to_string(),
             "--header-insertion=never".to_string(),
             "--completion-style=detailed".to_string(),
             "--query-driver=*".to_string(),
             "--log=error".to_string(), // Only log errors, not every AST build
             "--offset-encoding=utf-16".to_string(), // Standard for many LSP clients
-        ]
+        ];
+
+        if let Some(dir) = &self.compile_commands_dir {
+            args.push(format!("--compile-commands-dir={}", dir));
+        }
+
+        args
     }
 }

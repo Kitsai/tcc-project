@@ -24,11 +24,6 @@
           <UTooltip text="Edit the file">
             <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit(row.original)" />
           </UTooltip>
-          <USlideover v-modal="isEditorOpen" title="Code Editor" close-icon="i-lucide-x">
-            <template>
-              <LazyServerPlaceholder class="h-full w-full" v-if="isEditorOpen" :file-path="editingPath" />
-            </template>
-          </USlideover>
         </div>
       </template>
     </UTable>
@@ -59,12 +54,10 @@ const files = ref<string[]>([]);
 
 const selection = ref<Record<string, boolean>>({});
 
-const isEditorOpen = ref(false);
-const editingPath = ref('');
-
 const { invoke } = useTauri();
 const { throwError } = useCustomToast();
 const problems = useProblems();
+const router = useRouter();
 
 async function getFiles() {
   console.log("[Files.vue] getFiles called for type:", props.type);
@@ -125,8 +118,13 @@ function onAddFile() {
 }
 
 function onEdit(filename: string) {
-  editingPath.value = filename;
-  isEditorOpen.value = true;
+  router.push({
+    path: '/problem/editor',
+    query: {
+      type: props.type,
+      file: filename
+    }
+  });
 }
 
 onMounted(() => {

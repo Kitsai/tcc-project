@@ -25,11 +25,8 @@ fn get_include_paths() -> Vec<String> {
     }
 
     // 2. Resolve bundled resource headers
-    // During development, we use the absolute path to our src-tauri/resources/includes folder.
-    // In production, Tauri's resource resolver should be used (handled in the LspBridge instead).
     if let Ok(current_dir) = std::env::current_dir() {
         let mut resource_path = current_dir.clone();
-        // Depending on where it's launched, we might be in the root or src-tauri
         if resource_path.ends_with("src-tauri") {
             resource_path.push("resources/includes");
         } else {
@@ -44,19 +41,41 @@ fn get_include_paths() -> Vec<String> {
     includes
 }
 
+fn setup_global_compile_flags(includes: &[String]) -> Option<String> {
+    let mut home = dirs::home_dir()?;
+    home.push(".tcc-project");
+    let _ = std::fs::create_dir_all(&home);
+
+    let flags_path = home.join("compile_flags.txt");
+    let mut content = String::from("-std=c++17\n");
+    for include in includes {
+        let normalized = include.replace("\\", "/");
+        content.push_str(&format!("-I{}\n", normalized));
+    }
+
+    if let Err(e) = std::fs::write(&flags_path, content) {
+        eprintln!("Warning: Failed to create global compile_flags.txt: {}", e);
+        None
+    } else {
+        println!("Created global compile_flags.txt at {:?}", flags_path);
+        Some(home.to_string_lossy().to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let settings = settings::AppSettings::load().expect("Failed to load settings");
 
+    let include_paths = get_include_paths();
+    let compile_commands_dir = setup_global_compile_flags(&include_paths);
+
     let lsp_registry = LspRegistryBuilder::instance()
-        .with(Arc::new(ClangdServer::with_includes(get_include_paths())))
+        .with(Arc::new(ClangdServer::new(include_paths, compile_commands_dir)))
         .with(Arc::new(PyLspServer::new()))
         .build();
 
     let lsp_bridge = LspBridge::new(lsp_registry.clone());
-
     let problem_manager = ProblemManager::new();
-
     let runner = SimpleRunner::default();
 
     tauri::Builder::default()
@@ -87,6 +106,8 @@ pub fn run() {
             commands::problems::select_problem_file,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
+            commands::lsp::read_file_content,
+            commands::lsp::write_file_content,
             commands::settings::get_app_paths,
             commands::settings::get_settings,
             commands::settings::save_settings,

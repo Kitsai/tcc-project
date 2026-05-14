@@ -20,7 +20,9 @@ export default defineNuxtConfig({
         "@tauri-apps/api/path",
         "@tiptap/vue-3",
         "@tiptap/starter-kit",
-        "@tiptap/extension-mathematics"
+        "@tiptap/extension-mathematics",
+        "@tauri-apps/plugin-fs",
+        "@tiptap/core"
       ],
     },
     clearScreen: false,

@@ -30,6 +30,6 @@ impl LspServer for PyLspServer {
     }
 
     fn args(&self) -> Vec<String> {
-        vec!["-vv".to_string()]
+        vec![]
     }
 }
