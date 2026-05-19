@@ -65,6 +65,7 @@ mod dir;
 mod manager;
 mod registration;
 mod statement;
+mod validator;
 
 pub use manager::ProblemManager;
 
