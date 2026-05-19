@@ -1,8 +1,9 @@
 <template>
   <div>
     <UContainer class="py-2 flex justify-end">
-      <UButton type="button" label="Add File" :loading="tableLoading" @click="onAddFile" />
+      <ButtonTextField label="Add File" :loading="tableLoading" @submit="onAddFile" />
     </UContainer>
+
     <UTable v-model:row-selection="selection" :loading="tableLoading" :data="files" :columns="columns"
       :table-options="{ enableMultiRowSelection: false }"
       :ui="{ tr: 'border-l-4 border-transparent transition-all cursor-pointer' }" :meta="{
@@ -23,6 +24,9 @@
         <div class="flex justify-end">
           <UTooltip text="Edit the file">
             <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit(row.original)" />
+          </UTooltip>
+          <UTooltip text="Delete the file">
+            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="onRemove(row.original)" />
           </UTooltip>
         </div>
       </template>
@@ -60,12 +64,10 @@ const problems = useProblems();
 const router = useRouter();
 
 async function getFiles() {
-  console.log("[Files.vue] getFiles called for type:", props.type);
   tableLoading.value = true;
 
   try {
     const fetchedFiles = await invoke<string[]>("get_files_from", { dir: props.type })
-    console.log("[Files.vue] fetchedFiles:", fetchedFiles);
     files.value = fetchedFiles;
     applyAutoSelection();
   } catch (e) {
@@ -81,18 +83,15 @@ function applyAutoSelection() {
       ? problems.currentProblem.definition.validator
       : problems.currentProblem.definition.checker;
 
-    console.log("[Files.vue] Attempting auto-select. Saved:", savedFileName);
 
     if (savedFileName) {
       const index = files.value.findIndex(f => f === savedFileName);
-      console.log("[Files.vue] Found index:", index);
       if (index !== -1) {
         selection.value = { [index.toString()]: true };
-        console.log("[Files.vue] selection.value updated:", selection.value);
       }
     }
   } else {
-    console.log("[Files.vue] currentProblem is not loaded yet");
+    console.error("[Files.vue] currentProblem is not loaded yet");
   }
 }
 
@@ -113,8 +112,14 @@ async function onSelect(_: Event, row: TableRow<string>) {
 }
 
 
-function onAddFile() {
-  console.log("Add file clicked");
+async function onAddFile(name: string) {
+  try {
+    await invoke("create_file_on_dir", { dir: props.type, fileName: name });
+    await getFiles();
+  } catch (e) {
+    throwError("Failed to create file");
+    console.error(e);
+  }
 }
 
 function onEdit(filename: string) {
@@ -126,8 +131,16 @@ function onEdit(filename: string) {
     }
   });
 }
+async function onRemove(filename: string) {
+  try {
+    await invoke("delete_file_on_dir", { dir: props.type, fileName: filename });
+    await getFiles();
+  } catch (e) {
+    throwError("Failed to remove file");
+    console.error(e);
+  }
+}
 
-onMounted(() => {
-  getFiles();
-});
+onMounted(getFiles);
+
 </script>

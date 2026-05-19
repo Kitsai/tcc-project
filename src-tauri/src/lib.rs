@@ -70,7 +70,10 @@ pub fn run() {
     let compile_commands_dir = setup_global_compile_flags(&include_paths);
 
     let lsp_registry = LspRegistryBuilder::instance()
-        .with(Arc::new(ClangdServer::new(include_paths, compile_commands_dir)))
+        .with(Arc::new(ClangdServer::new(
+            include_paths,
+            compile_commands_dir,
+        )))
         .with(Arc::new(PyLspServer::new()))
         .build();
 
@@ -106,8 +109,10 @@ pub fn run() {
             commands::problems::select_problem_file,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
-            commands::lsp::read_file_content,
-            commands::lsp::write_file_content,
+            commands::files::read_file_content,
+            commands::files::write_file_content,
+            commands::files::create_file_on_dir,
+            commands::files::delete_file_on_dir,
             commands::settings::get_app_paths,
             commands::settings::get_settings,
             commands::settings::save_settings,

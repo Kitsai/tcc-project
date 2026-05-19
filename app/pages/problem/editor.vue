@@ -32,6 +32,7 @@ const editorRef = ref<any>(null);
 
 const { throwSuccess } = useCustomToast();
 
+
 async function onSave() {
   if (editorRef.value) {
     await editorRef.value.save();
@@ -40,7 +41,8 @@ async function onSave() {
 }
 
 defineShortcuts({
-  meta_s: onSave
+  meta_s: onSave,
+  escape: router.back
 });
 
 definePageMeta({
