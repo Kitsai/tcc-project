@@ -2,7 +2,7 @@
   <div>
     <div class="py-2 flex justify-end gap-2">
       <UButton label="Run Tests" class="px-4" />
-      <UButton label="Add Test" class="px-4" />
+      <UButton label="Add Test" class="px-4" @click="createModalOpen = true" />
     </div>
     <UTable :loading="tableLoading" :columns="columns" :data="data">
 
@@ -13,10 +13,10 @@
       <template #actions-cell="{ row }">
         <div class="flex items-center gap-2">
           <UTooltip text="Delete this test">
-            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="onDelete" />
+            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="onDelete(row.original.id)" />
           </UTooltip>
           <UTooltip text="Edit this test">
-            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit" />
+            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit(row.original)" />
           </UTooltip>
           <UTooltip>
             <UButton icon="i-lucide-copy" color="neutral" variant="ghost" @click.stop="onCopy(row.original.input)" />
@@ -24,6 +24,10 @@
         </div>
       </template>
     </UTable>
+
+    <!-- Modals -->
+    <LazyProblemValidatorCreateTestModal v-model:open="createModalOpen" @success="getFiles" />
+    <LazyProblemValidatorEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="getFiles" />
   </div>
 </template>
 
@@ -32,7 +36,14 @@ import type { TableColumn } from '@nuxt/ui';
 import type { ValidatorTest } from '~/utils/ValidatorTest';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
+const { invoke } = useTauri();
+const { throwSuccess, throwError } = useCustomToast();
+
 const tableLoading = ref(false);
+const createModalOpen = ref(false);
+const editModalOpen = ref(false);
+
+const selectedTest = ref<ValidatorTest | null>(null)
 
 const columns: TableColumn<ValidatorTest>[] = [
   {
@@ -60,14 +71,18 @@ const columns: TableColumn<ValidatorTest>[] = [
   }
 ]
 
-const { throwSuccess } = useCustomToast();
 
-function onDelete() {
-
+async function onDelete(id: number) {
+  try {
+    await invoke("delete_validator_test", { id });
+    await getFiles();
+  } catch (e) {
+    console.error(e);
+  }
 }
 
-function onEdit() {
-
+function onEdit(test: ValidatorTest) {
+  selectedTest.value = test;
 }
 
 async function onCopy(content: string) {
@@ -79,25 +94,20 @@ async function onCopy(content: string) {
   }
 }
 
-const data = ref<ValidatorTest[]>([
-  {
-    id: 1,
-    input: "3\n1 2 3\n",
-    expected: "VALID",
-    actual: "VALID",
-  },
-  {
-    id: 2,
-    input: "3\n1 2 \n",
-    expected: "INVALID",
-    actual: "INVALID",
-  },
-  {
-    id: 3,
-    input: "2\n 1 2\n",
-    expected: "VALID",
-    actual: ""
+const data = ref<ValidatorTest[]>([]);
+
+async function getFiles() {
+  tableLoading.value = true;
+
+  try {
+    data.value = await invoke<ValidatorTest[]>("get_validator_tests");
+  } catch (e) {
+    console.error(e);
   }
-]);
+
+  tableLoading.value = false;
+}
+
+onMounted(getFiles);
 
 </script>
