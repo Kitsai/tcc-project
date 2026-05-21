@@ -3,7 +3,7 @@ use std::fs;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
-use super::ProblemModule;
+use crate::util::{Persistant, ResultExt};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProblemStatement {
@@ -28,17 +28,17 @@ impl ProblemStatement {
     }
 }
 
-impl ProblemModule for ProblemStatement {
+impl Persistant for ProblemStatement {
     fn save(&self, base_path: &std::path::Path) -> Result<(), String> {
         let statement_dir = base_path.join("statement");
         debug!("Creating tex files at {:?}", statement_dir);
 
-        fs::write(statement_dir.join("name.tex"), &self.name).map_err(|e| e.to_string())?;
-        fs::write(statement_dir.join("legend.tex"), &self.legend).map_err(|e| e.to_string())?;
-        fs::write(statement_dir.join("input.tex"), &self.input).map_err(|e| e.to_string())?;
-        fs::write(statement_dir.join("output.tex"), &self.output).map_err(|e| e.to_string())?;
-        fs::write(statement_dir.join("notes.tex"), &self.notes).map_err(|e| e.to_string())?;
-        fs::write(statement_dir.join("tutorial.tex"), &self.tutorial).map_err(|e| e.to_string())?;
+        fs::write(statement_dir.join("name.tex"), &self.name).err_to_string()?;
+        fs::write(statement_dir.join("legend.tex"), &self.legend).err_to_string()?;
+        fs::write(statement_dir.join("input.tex"), &self.input).err_to_string()?;
+        fs::write(statement_dir.join("output.tex"), &self.output).err_to_string()?;
+        fs::write(statement_dir.join("notes.tex"), &self.notes).err_to_string()?;
+        fs::write(statement_dir.join("tutorial.tex"), &self.tutorial).err_to_string()?;
 
         debug!("Files created");
 
@@ -48,18 +48,13 @@ impl ProblemModule for ProblemStatement {
     fn load(base_path: &std::path::Path) -> Result<Self, String> {
         let statement_dir = base_path.join("statement");
 
-        let name = fs::read_to_string(statement_dir.join("name.tex")).map_err(|e| e.to_string())?;
-        let legend =
-            fs::read_to_string(statement_dir.join("legend.tex")).map_err(|e| e.to_string())?;
+        let name = fs::read_to_string(statement_dir.join("name.tex")).err_to_string()?;
+        let legend = fs::read_to_string(statement_dir.join("legend.tex")).err_to_string()?;
         debug!("Loaded legend with content {}", legend);
-        let input =
-            fs::read_to_string(statement_dir.join("input.tex")).map_err(|e| e.to_string())?;
-        let output =
-            fs::read_to_string(statement_dir.join("output.tex")).map_err(|e| e.to_string())?;
-        let notes =
-            fs::read_to_string(statement_dir.join("notes.tex")).map_err(|e| e.to_string())?;
-        let tutorial =
-            fs::read_to_string(statement_dir.join("tutorial.tex")).map_err(|e| e.to_string())?;
+        let input = fs::read_to_string(statement_dir.join("input.tex")).err_to_string()?;
+        let output = fs::read_to_string(statement_dir.join("output.tex")).err_to_string()?;
+        let notes = fs::read_to_string(statement_dir.join("notes.tex")).err_to_string()?;
+        let tutorial = fs::read_to_string(statement_dir.join("tutorial.tex")).err_to_string()?;
 
         Ok(ProblemStatement {
             name,

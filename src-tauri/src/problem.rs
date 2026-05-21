@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::RwLock,
-};
+use std::path::{Path, PathBuf};
 
 use log::debug;
 
@@ -26,7 +23,14 @@ impl Problem {
         }
     }
 
-    pub fn load(path: &Path) -> Result<Self, String> {
+    pub fn save_to_disk(&self) -> Result<(), String> {
+        let file_path = self.path.join(format!("{}.prblm", self.definition.name));
+        self.save(&file_path)
+    }
+}
+
+impl Persistant for Problem {
+    fn load(path: &Path) -> Result<Self, String> {
         let base = path
             .parent()
             .ok_or(String::from("Failed to get base problem path"))?;
@@ -45,8 +49,8 @@ impl Problem {
         })
     }
 
-    pub fn save(&self) -> Result<(), String> {
-        self.definition.save(&self.path)?;
+    fn save(&self, path: &Path) -> Result<(), String> {
+        self.definition.save(path)?;
         debug!("Saved definition");
         self.stmt.save(&self.path)?;
         debug!("Saved statements");
@@ -55,23 +59,20 @@ impl Problem {
     }
 }
 
-pub trait ProblemModule: Sized {
-    fn save(&self, base_path: &Path) -> Result<(), String>;
-    fn load(base_path: &Path) -> Result<Self, String>;
-}
-
 mod definition;
 mod dir;
+mod files;
 mod manager;
 mod registration;
 mod statement;
 mod validator;
 
-pub use manager::ProblemManager;
-
-pub use registration::ProblemRegistration;
-
 pub use definition::ProblemDefinition;
-pub use statement::ProblemStatement;
-
 pub use dir::ProblemDir;
+pub use files::ProblemFileType;
+pub use manager::ProblemManager;
+pub use registration::ProblemRegistration;
+pub use statement::ProblemStatement;
+pub use validator::ValidatorTest;
+
+use crate::util::Persistant;

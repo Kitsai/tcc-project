@@ -20,9 +20,21 @@ pub async fn check_languages(runner: State<'_, SimpleRunner>) -> Result<Language
     debug!("Cpp result is {:?}", cpp_res);
     debug!("Python3 result is {:?}", py_res);
 
+    let py_is_ok = if let Ok(res) = py_res {
+        res.stderr.is_empty()
+    } else {
+        false
+    };
+
+    let cpp_is_ok = if let Ok(res) = cpp_res {
+        res.stderr.is_empty()
+    } else {
+        false
+    };
+
     Ok(LanguageDetails {
-        python3: py_res.is_ok(),
-        gpp: cpp_res.is_ok(),
+        python3: py_is_ok,
+        gpp: cpp_is_ok,
     })
 }
 

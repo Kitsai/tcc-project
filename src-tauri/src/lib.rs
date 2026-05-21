@@ -5,11 +5,13 @@ use crate::runner::SimpleRunner;
 use std::sync::Arc;
 
 pub mod commands;
+mod constants;
 pub mod lsp;
 pub mod polygon;
 pub mod problem;
 pub mod runner;
 pub mod settings;
+mod util;
 
 const APP_NAME: &str = "tcc-project";
 
@@ -105,14 +107,17 @@ pub fn run() {
             commands::problems::create_problem,
             commands::problems::load_problem,
             commands::problems::save_statement,
-            commands::problems::get_files_from,
             commands::problems::select_problem_file,
+            commands::problems::create_validator_test,
+            commands::problems::edit_validator_test,
+            commands::problems::delete_validator_test,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,
             commands::files::write_file_content,
             commands::files::create_file_on_dir,
             commands::files::delete_file_on_dir,
+            commands::files::get_files,
             commands::settings::get_app_paths,
             commands::settings::get_settings,
             commands::settings::save_settings,

@@ -20,12 +20,14 @@ let editor: monaco.editor.IStandaloneCodeEditor | null = null;
 
 const fullPath = computed(() => {
   if (!problems.currentProblem) return null;
-  return `${problems.currentProblem.path}/${props.type}/${props.fileName}`;
+  const dir = props.type === 'solution' ? 'solutions' : 'files';
+  return `${problems.currentProblem.path}/${dir}/${props.fileName}`;
 });
 
 const workspaceDir = computed(() => {
   if (!problems.currentProblem) return null;
-  return `${problems.currentProblem.path}/${props.type}`;
+  const dir = props.type === 'solution' ? 'solutions' : 'files';
+  return `${problems.currentProblem.path}/${dir}`;
 });
 
 const editorTheme = computed<string>(() => {

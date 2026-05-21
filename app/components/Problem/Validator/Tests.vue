@@ -13,13 +13,13 @@
       <template #actions-cell="{ row }">
         <div class="flex items-center gap-2">
           <UTooltip text="Delete this test">
-            <UButton icon="i-lucide-trash" color="error" variant="ghost" />
+            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="onDelete" />
           </UTooltip>
           <UTooltip text="Edit this test">
-            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" />
+            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit" />
           </UTooltip>
           <UTooltip>
-            <UButton icon="i-lucide-copy" color="neutral" variant="ghost" />
+            <UButton icon="i-lucide-copy" color="neutral" variant="ghost" @click.stop="onCopy(row.original.input)" />
           </UTooltip>
         </div>
       </template>
@@ -30,8 +30,10 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
 import type { ValidatorTest } from '~/utils/ValidatorTest';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
 const tableLoading = ref(false);
+
 const columns: TableColumn<ValidatorTest>[] = [
   {
     id: "id",
@@ -57,6 +59,25 @@ const columns: TableColumn<ValidatorTest>[] = [
     header: "",
   }
 ]
+
+const { throwSuccess } = useCustomToast();
+
+function onDelete() {
+
+}
+
+function onEdit() {
+
+}
+
+async function onCopy(content: string) {
+  try {
+    await writeText(content);
+    throwSuccess("Input copied to clipboard!");
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 const data = ref<ValidatorTest[]>([
   {

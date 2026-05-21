@@ -1,26 +1,17 @@
 <template>
-  <div class="flex flex-col gap-5">
-    <UFormField label="Language" name="language">
-      <UInputMenu v-model="languageSelect" :items="languageOptions" />
-    </UFormField>
-    <UTabs :items="tabs">
+  <UTabs class="px-4" :items="tabs">
 
-      <template #files>
-        <ProblemFiles type="validators" />
-      </template>
+    <template #files>
+      <ProblemFiles type="validator" />
+    </template>
 
-      <template #tests>
-        <LazyProblemValidatorTests />
-      </template>
-    </UTabs>
-  </div>
+    <template #tests>
+      <LazyProblemValidatorTests />
+    </template>
+  </UTabs>
 </template>
 
 <script setup lang="ts">
-const languageOptions = ['Autodetect', 'cpp.g++17', 'cpp.g++14', 'python.3'];
-
-const languageSelect = ref("Autodetect");
-
 const tabs = [
   {
     label: 'Files',

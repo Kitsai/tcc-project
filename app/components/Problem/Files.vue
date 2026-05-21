@@ -38,7 +38,7 @@
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
 const props = defineProps<{
-  type: 'validators' | 'checkers'
+  type: 'validator' | 'checker'
 }>();
 
 const columns: TableColumn<string>[] = [
@@ -67,7 +67,7 @@ async function getFiles() {
   tableLoading.value = true;
 
   try {
-    const fetchedFiles = await invoke<string[]>("get_files_from", { dir: props.type })
+    const fetchedFiles = await invoke<string[]>("get_files")
     files.value = fetchedFiles;
     applyAutoSelection();
   } catch (e) {
@@ -79,7 +79,7 @@ async function getFiles() {
 
 function applyAutoSelection() {
   if (problems.currentProblem) {
-    const savedFileName = props.type === "validators"
+    const savedFileName = props.type === "validator"
       ? problems.currentProblem.definition.validator
       : problems.currentProblem.definition.checker;
 
@@ -99,10 +99,10 @@ async function onSelect(_: Event, row: TableRow<string>) {
   selection.value = { [row.id]: true };
 
   try {
-    await invoke("select_problem_file", { dir: props.type, file: row.original });
+    await invoke("select_problem_file", { fileType: props.type, file: row.original });
 
     if (problems.currentProblem) {
-      if (props.type === "checkers") problems.currentProblem.definition.checker = row.original;
+      if (props.type === "checker") problems.currentProblem.definition.checker = row.original;
       else problems.currentProblem.definition.validator = row.original;
     }
   } catch (e) {
@@ -114,7 +114,7 @@ async function onSelect(_: Event, row: TableRow<string>) {
 
 async function onAddFile(name: string) {
   try {
-    await invoke("create_file_on_dir", { dir: props.type, fileName: name });
+    await invoke("create_file_on_dir", { dir: "files", fileName: name });
     await getFiles();
   } catch (e) {
     throwError("Failed to create file");
@@ -133,7 +133,7 @@ function onEdit(filename: string) {
 }
 async function onRemove(filename: string) {
   try {
-    await invoke("delete_file_on_dir", { dir: props.type, fileName: filename });
+    await invoke("delete_file_on_dir", { dir: "files", fileName: filename });
     await getFiles();
   } catch (e) {
     throwError("Failed to remove file");

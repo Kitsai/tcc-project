@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+use crate::util::SerdePersistant;
+
 #[derive(Serialize, Deserialize)]
 pub struct ValidatorTest {
-    id: u16,
-    input: String,
-    expected: ValidatorTestResult,
-    actual: ValidatorTestResult,
+    pub id: u16,
+    pub input: String,
+    pub expected: ValidatorTestResult,
+    pub actual: ValidatorTestResult,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -15,3 +17,5 @@ pub enum ValidatorTestResult {
     Invalid,
     None,
 }
+
+impl SerdePersistant for ValidatorTest {}
