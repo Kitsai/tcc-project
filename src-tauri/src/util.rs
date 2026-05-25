@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::Path};
+use std::{fmt::Display, fs, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -39,4 +39,22 @@ where
         let reader = std::io::BufReader::new(file);
         serde_json::from_reader(reader).err_to_string()
     }
+}
+
+pub fn next_available_id(path: &Path) -> u16 {
+    let mut existing: std::collections::HashSet<u16> = std::collections::HashSet::new();
+
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if let Some(name) = entry
+                .file_name()
+                .to_str()
+                .and_then(|s| s.parse::<u16>().ok())
+            {
+                existing.insert(name);
+            }
+        }
+    }
+
+    (1u16..).find(|id| !existing.contains(id)).unwrap_or(1)
 }

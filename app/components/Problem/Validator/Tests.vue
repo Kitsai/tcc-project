@@ -1,8 +1,8 @@
 <template>
   <div>
     <div class="py-2 flex justify-end gap-2">
-      <UButton label="Run Tests" class="px-4" />
-      <UButton label="Add Test" class="px-4" @click="createModalOpen = true" />
+      <UButton label="Run Tests" variant="subtle" class="px-4" />
+      <UButton label="Add Test" variant="subtle" class="px-4" @click="createModalOpen = true" />
     </div>
     <UTable :loading="tableLoading" :columns="columns" :data="data">
 
@@ -100,7 +100,8 @@ async function getFiles() {
   tableLoading.value = true;
 
   try {
-    data.value = await invoke<ValidatorTest[]>("get_validator_tests");
+    const tests = await invoke<ValidatorTest[]>("get_validator_tests");
+    data.value = tests.sort((a, b) => a.id - b.id);
   } catch (e) {
     console.error(e);
   }

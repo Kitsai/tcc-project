@@ -1,36 +1,15 @@
 <template>
-  <div class="flex justify-end items-center min-h-[40px]">
+  <div class="flex justify-end items-center min-h-10">
     <Transition name="morph" mode="out-in">
       <div v-if="!textOpen" key="button">
-        <UButton
-          type="button"
-          :label="props.label"
-          :loading="props.loading"
-          variant="subtle"
-          @click="onAddClick"
-        />
+        <UButton type="button" :label="props.label" :loading="props.loading" variant="subtle" @click="onAddClick" />
       </div>
       <div v-else key="form" class="flex items-center gap-2">
-        <UInput
-          v-model="state.name"
-          placeholder="Name..."
-          class="w-48"
-          @keyup.enter="onSubmit"
-          @keydown.esc="onCancel"
-        />
+        <UInput v-model="state.name" placeholder="Name..." class="w-48" @keyup.enter="onSubmit"
+          @keydown.esc="onCancel" />
         <div class="flex items-center gap-1">
-          <UButton
-            icon="i-lucide-check"
-            color="primary"
-            variant="ghost"
-            @click="onSubmit"
-          />
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            @click="onCancel"
-          />
+          <UButton icon="i-lucide-check" color="primary" variant="ghost" @click="onSubmit" />
+          <UButton icon="i-lucide-x" color="neutral" variant="ghost" @click="onCancel" />
         </div>
       </div>
     </Transition>
