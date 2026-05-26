@@ -4,7 +4,7 @@ use tauri::State;
 
 use crate::{
     constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
-    problem::{ProblemManager, ValidatorTest, ValidatorTestCreateDto, ValidatorTestResult},
+    problem::{ProblemManager, ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto},
     util::{next_available_id, Persistant, ResultExt},
 };
 
@@ -62,12 +62,7 @@ pub fn create_validator_test(
         }
 
         for (input, verdict) in inputs.iter().zip(verdicts.iter()) {
-            let new_test = ValidatorTest {
-                id: current_id,
-                input: input.to_string(),
-                expected: verdict.parse()?,
-                actual: ValidatorTestResult::None,
-            };
+            let new_test = ValidatorTest::new(current_id, input, verdict.parse()?);
 
             new_test.save(&current_path)?;
             current_id += 1;
@@ -78,12 +73,7 @@ pub fn create_validator_test(
             }
         }
     } else {
-        let new_test = ValidatorTest {
-            id: test.id,
-            input: test.input,
-            expected: test.verdict.parse()?,
-            actual: ValidatorTestResult::None,
-        };
+        let new_test = ValidatorTest::new(test.id, &test.input, test.verdict.parse()?);
         new_test.save(&path)?;
     }
 
@@ -92,17 +82,20 @@ pub fn create_validator_test(
 
 #[tauri::command]
 pub fn edit_validator_test(
-    test: ValidatorTest,
+    dto: ValidatorTestEditDto,
     state: State<ProblemManager>,
 ) -> Result<(), String> {
     let path = state
         .get_current_path()?
-        .join(format!("tests/validator/{:02}", test.id));
+        .join(format!("tests/validator/{:02}", dto.id));
 
     if path.exists() {
-        test.save(&path)
+        let mut current = ValidatorTest::load(&path)?;
+
+        current.edit(&dto.input, dto.verdict.parse()?);
+        current.save(&path)
     } else {
-        Err(format!("Test with id {} does not exist", test.id))
+        Err(format!("Test with id {} does not exist", dto.id))
     }
 }
 

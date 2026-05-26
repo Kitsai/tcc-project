@@ -45,10 +45,36 @@ impl std::str::FromStr for ValidatorTestResult {
 
 impl SerdePersistant for ValidatorTest {}
 
+impl ValidatorTest {
+    pub fn new(id: u16, input: &str, expected: ValidatorTestResult) -> Self {
+        Self {
+            id,
+            input: input.to_string(),
+            expected,
+            actual: ValidatorTestResult::None,
+        }
+    }
+    pub fn edit(&mut self, input: &str, verdict: ValidatorTestResult) {
+        self.input = input.to_string();
+        self.expected = verdict;
+    }
+
+    pub fn set_actual_verdict(&mut self, actual: ValidatorTestResult) {
+        self.actual = actual;
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidatorTestCreateDto {
     pub id: u16,
     pub mult: bool,
+    pub input: String,
+    pub verdict: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidatorTestEditDto {
+    pub id: u16,
     pub input: String,
     pub verdict: String,
 }

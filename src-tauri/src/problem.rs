@@ -73,6 +73,8 @@ pub use files::ProblemFileType;
 pub use manager::ProblemManager;
 pub use registration::ProblemRegistration;
 pub use statement::ProblemStatement;
-pub use validator::{ValidatorTest, ValidatorTestCreateDto, ValidatorTestResult};
+pub use validator::{
+    ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,
+};
 
 use crate::util::Persistant;

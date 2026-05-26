@@ -83,6 +83,7 @@ async function onDelete(id: number) {
 
 function onEdit(test: ValidatorTest) {
   selectedTest.value = test;
+  editModalOpen.value = true;
 }
 
 async function onCopy(content: string) {

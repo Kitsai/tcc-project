@@ -14,3 +14,9 @@ export interface ValidatorTestCreateDto {
   verdict: string,
 }
 
+
+export interface ValidatorTestEditDto {
+  id: number,
+  input: string,
+  verdict: string,
+}
