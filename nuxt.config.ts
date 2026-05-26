@@ -5,6 +5,7 @@ export default defineNuxtConfig({
   modules: ["@pinia/nuxt", "@nuxt/ui"],
   css: ["~/assets/css/main.css"],
   ssr: false,
+  telemetry: false,
   devServer: {
     port: 3000,
   },
@@ -22,7 +23,8 @@ export default defineNuxtConfig({
         "@tiptap/starter-kit",
         "@tiptap/extension-mathematics",
         "@tauri-apps/plugin-fs",
-        "@tiptap/core"
+        "@tiptap/core",
+        "@tauri-apps/plugin-clipboard-manager",
       ],
     },
     clearScreen: false,
@@ -36,6 +38,6 @@ export default defineNuxtConfig({
   },
   ignore: ["**/src-tauri/**"],
   app: {
-    pageTransition: { name: 'page', mode: 'out-in' }
-  }
+    pageTransition: { name: "page", mode: "out-in" },
+  },
 });
