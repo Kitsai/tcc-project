@@ -5,10 +5,13 @@ use std::{
 
 use tokio::sync::Semaphore;
 
+use crate::util::num_cpus;
+
 use super::*;
 
+#[derive(Clone)]
 pub struct SimpleRunner {
-    semaphore: Semaphore,
+    semaphore: Arc<Semaphore>,
 }
 
 impl SimpleRunner {
@@ -21,7 +24,7 @@ impl SimpleRunner {
 
 impl Default for SimpleRunner {
     fn default() -> Self {
-        Self::new(4)
+        Self::new(num_cpus())
     }
 }
 

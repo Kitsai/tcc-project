@@ -1,10 +1,11 @@
 use std::fs;
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::{
     constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
     problem::{ProblemManager, ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto},
+    runner::SimpleRunner,
     util::{next_available_id, Persistant, ResultExt},
 };
 
@@ -106,4 +107,12 @@ pub fn delete_validator_test(id: u16, state: State<ProblemManager>) -> Result<()
         .join(format!("tests/validator/{:02}", id));
 
     fs::remove_file(path).err_to_string()
+}
+
+#[tauri::command]
+pub async fn run_validator_tests(
+    runner: State<SimpleRunner>,
+    problem_manager: State<ProblemManager>,
+    app: AppHandle,
+) {
 }

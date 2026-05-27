@@ -58,3 +58,13 @@ pub fn next_available_id(path: &Path) -> u16 {
 
     (1u16..).find(|id| !existing.contains(id)).unwrap_or(1)
 }
+
+pub fn num_cpus() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+}
+
+pub trait EventEmitter: Send + Sync {
+    fn emit<E: Serialize + Send>(&self, event: &str, payload: E);
+}
