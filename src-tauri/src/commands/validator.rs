@@ -3,25 +3,17 @@ use std::fs;
 use tauri::{AppHandle, State};
 
 use crate::{
-    constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
+    constants::VALIDATOR_TESTS_PATH,
     problem::{ProblemManager, ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto},
-    runner::SimpleRunner,
+    runner::Runner,
     util::{next_available_id, Persistant, ResultExt},
 };
 
 #[tauri::command]
 pub fn get_validator_tests(state: State<ProblemManager>) -> Result<Vec<ValidatorTest>, String> {
-    let mut tests: Vec<ValidatorTest> = Vec::new();
+    let problem_path = state.get_current_path()?;
 
-    let path = state.get_current_path()?.join("tests/validator");
-
-    let dir_entries = fs::read_dir(path).err_to_string()?;
-
-    for entry in dir_entries.flatten() {
-        tests.push(ValidatorTest::load(&entry.path())?);
-    }
-
-    Ok(tests)
+    ValidatorTest::get_all(&problem_path)
 }
 
 #[tauri::command]
@@ -45,40 +37,7 @@ pub fn create_validator_test(
     test: ValidatorTestCreateDto,
     state: State<ProblemManager>,
 ) -> Result<(), String> {
-    let base_path = state.get_current_path()?.join(VALIDATOR_TESTS_PATH);
-    let path = base_path.join(format!("{:02}", test.id));
-
-    if path.exists() {
-        return Err(format!("Test with id {} already exists", test.id));
-    }
-
-    if test.mult {
-        let inputs: Vec<&str> = test.input.split(MULT_SEPARATOR).collect();
-        let verdicts: Vec<&str> = test.verdict.lines().collect();
-        let mut current_id = test.id;
-        let mut current_path = path;
-
-        if inputs.len() != verdicts.len() {
-            return Err("Inputs and verdicts must have the same number of entries.".to_string());
-        }
-
-        for (input, verdict) in inputs.iter().zip(verdicts.iter()) {
-            let new_test = ValidatorTest::new(current_id, input, verdict.parse()?);
-
-            new_test.save(&current_path)?;
-            current_id += 1;
-            current_path = base_path.join(format!("{:02}", current_id));
-            if current_path.exists() {
-                current_id = next_available_id(&base_path);
-                current_path = base_path.join(format!("{:02}", current_id));
-            }
-        }
-    } else {
-        let new_test = ValidatorTest::new(test.id, &test.input, test.verdict.parse()?);
-        new_test.save(&path)?;
-    }
-
-    Ok(())
+    ValidatorTest::create(test, &state.get_current_path()?)
 }
 
 #[tauri::command]
@@ -88,7 +47,7 @@ pub fn edit_validator_test(
 ) -> Result<(), String> {
     let path = state
         .get_current_path()?
-        .join(format!("tests/validator/{:02}", dto.id));
+        .join(format!("{}/{:02}", VALIDATOR_TESTS_PATH, dto.id));
 
     if path.exists() {
         let mut current = ValidatorTest::load(&path)?;
@@ -104,15 +63,21 @@ pub fn edit_validator_test(
 pub fn delete_validator_test(id: u16, state: State<ProblemManager>) -> Result<(), String> {
     let path = state
         .get_current_path()?
-        .join(format!("tests/validator/{:02}", id));
+        .join(format!("{}/{:02}", VALIDATOR_TESTS_PATH, id));
 
     fs::remove_file(path).err_to_string()
 }
 
 #[tauri::command]
 pub async fn run_validator_tests(
-    runner: State<SimpleRunner>,
-    problem_manager: State<ProblemManager>,
+    runner: State<'_, std::sync::Arc<dyn Runner>>,
+    problem_manager: State<'_, ProblemManager>,
     app: AppHandle,
-) {
+) -> Result<(), String> {
+    let problem_path = problem_manager.get_current_path()?;
+    let validator_path = problem_manager
+        .get_current_validator_path()?
+        .ok_or_else(|| "No validator configured for this problem".to_string())?;
+
+    ValidatorTest::run_all(&problem_path, validator_path, app, runner.inner().clone()).await
 }

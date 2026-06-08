@@ -1,4 +1,3 @@
-pub const NO_PRBLM_ERR: &str = "No problem is open";
 pub const MULT_SEPARATOR: &str = "===";
 
 /// OS
@@ -16,3 +15,7 @@ pub const CHECKER_TESTS_PATH: &str = "tests/checker";
 /// COMMANDS
 pub const PYTHON_INTERPRETER: &str = "python3";
 pub const CPP_COMPILER: &str = "g++";
+
+/// ERROR MESSAGES
+pub const NO_PRBLM_ERR: &str = "No problem is open";
+pub const LANGUAGE_INVALID_ERR: &str = "Programming language not valid";

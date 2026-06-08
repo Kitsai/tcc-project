@@ -1,8 +1,11 @@
-use std::{path::PathBuf, sync::RwLock};
+use std::{
+    path::{Path, PathBuf},
+    sync::RwLock,
+};
 
 use crate::{constants::NO_PRBLM_ERR, util::ResultExt};
 
-use super::Problem;
+use super::{Problem, ProblemFileType};
 
 pub struct ProblemManager {
     pub current: RwLock<Option<Problem>>,
@@ -25,6 +28,7 @@ impl ProblemManager {
         }
     }
 
+    /// Returns the validator's source path, relative to the problem's root directory.
     pub fn get_current_validator_path(&self) -> Result<Option<PathBuf>, String> {
         let curr = self.current.read().err_to_string()?;
 
@@ -33,7 +37,7 @@ impl ProblemManager {
                 .definition
                 .validator
                 .as_ref()
-                .map(|v| problem.path.join("files").join(v)))
+                .map(|v| Path::new(ProblemFileType::Validator.directory()).join(v)))
         } else {
             Err(NO_PRBLM_ERR.to_string())
         }

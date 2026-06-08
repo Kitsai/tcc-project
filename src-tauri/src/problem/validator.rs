@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
-    runner::{ExecutionRequest, Runner},
+    constants::{LANGUAGE_INVALID_ERR, MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
+    problem::ProgrammingLanguage,
+    runner::Runner,
     util::{next_available_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
 };
 
@@ -132,16 +133,19 @@ impl ValidatorTest {
         let tests = Self::get_all(problem_path)?;
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
+        let language = ProgrammingLanguage::get_from_path(&validator_path)
+            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+        let request_template = language.resolve(&validator_path, problem_path).into_request();
+
         let mut handles = Vec::new();
 
         for test in tests {
             let runner = runner.clone();
             let emitter = emitter.clone();
-            let validator_path = validator_path.clone();
             let tests_path = tests_path.clone();
+            let mut request = request_template.clone();
 
             let handle = tokio::spawn(async move {
-                let mut request = ExecutionRequest::new(&validator_path.to_string_lossy());
                 request.with_input(&test.input);
 
                 let actual = match runner.execute(request).await {

@@ -78,6 +78,7 @@ impl Runner for SimpleRunner {
             stdout: String::from_utf8_lossy(&result.stdout).to_string(),
             stderr: String::from_utf8_lossy(&result.stderr).to_string(),
             execution_time: duration,
+            exit_code: result.status.code().unwrap_or(-1),
         })
     }
 }

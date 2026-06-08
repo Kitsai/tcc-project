@@ -1,5 +1,5 @@
+use std::fmt;
 use std::time::Duration;
-use std::{fmt, io::stderr};
 
 use async_trait::async_trait;
 
@@ -41,6 +41,11 @@ impl ExecutionRequest {
         self
     }
 
+    pub fn with_args(&mut self, args: &[String]) -> &mut Self {
+        self.args.extend_from_slice(args);
+        self
+    }
+
     pub fn with_options(&mut self, options: ExecutionOptions) -> &mut Self {
         self.options = options;
 
@@ -67,11 +72,12 @@ pub struct ExecutionInfo {
     pub stdout: String,
     pub stderr: String,
     pub execution_time: Duration,
+    pub exit_code: i32,
 }
 
 impl ExecutionInfo {
     pub fn to_result(self) -> Result<String, String> {
-        if self.stderr.is_empty() {
+        if self.exit_code == 0 {
             Ok(self.stdout)
         } else {
             Err(self.stderr)

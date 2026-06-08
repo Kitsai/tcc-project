@@ -1,5 +1,5 @@
 use crate::lsp::{ClangdServer, LspBridge, LspRegistryBuilder, PyLspServer};
-use crate::problem::ProblemManager;
+use crate::problem::{get_include_paths, ProblemManager};
 use crate::runner::{Runner, SimpleRunner};
 
 use std::sync::Arc;
@@ -14,34 +14,6 @@ pub mod settings;
 mod util;
 
 const APP_NAME: &str = "tcc-project";
-
-fn get_include_paths() -> Vec<String> {
-    let mut includes = Vec::new();
-
-    // 1. Resolve user headers in ~/.tcc-project/includes
-    if let Some(mut home) = dirs::home_dir() {
-        home.push(".tcc-project");
-        home.push("includes");
-        let _ = std::fs::create_dir_all(&home);
-        includes.push(home.to_string_lossy().to_string());
-    }
-
-    // 2. Resolve bundled resource headers
-    if let Ok(current_dir) = std::env::current_dir() {
-        let mut resource_path = current_dir.clone();
-        if resource_path.ends_with("src-tauri") {
-            resource_path.push("resources/includes");
-        } else {
-            resource_path.push("src-tauri/resources/includes");
-        }
-
-        if resource_path.exists() {
-            includes.push(resource_path.to_string_lossy().to_string());
-        }
-    }
-
-    includes
-}
 
 fn setup_global_compile_flags(includes: &[String]) -> Option<String> {
     let mut home = dirs::home_dir()?;
@@ -113,6 +85,7 @@ pub fn run() {
             commands::validator::create_validator_test,
             commands::validator::edit_validator_test,
             commands::validator::delete_validator_test,
+            commands::validator::run_validator_tests,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,

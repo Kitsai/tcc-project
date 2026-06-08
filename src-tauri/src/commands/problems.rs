@@ -2,14 +2,16 @@ use std::{
     fs,
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Arc,
 };
 
 use log::debug;
 use tauri::{webview::cookie::time::UtcDateTime, State};
 
 use crate::{
-    constants::NO_PRBLM_ERR,
-    problem::{Problem, ProblemFileType, ProblemManager, ProblemStatement},
+    constants::{LANGUAGE_INVALID_ERR, NO_PRBLM_ERR},
+    problem::{Problem, ProblemFileType, ProblemManager, ProblemStatement, ProgrammingLanguage},
+    runner::Runner,
     util::{Persistant, ResultExt},
 };
 
@@ -100,29 +102,45 @@ pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> R
 }
 
 #[tauri::command]
-pub fn select_problem_file(
+pub async fn select_problem_file(
     file_type: ProblemFileType,
     file: String,
-    state: State<ProblemManager>,
+    state: State<'_, ProblemManager>,
+    runner: State<'_, Arc<dyn Runner>>,
 ) -> Result<(), String> {
+    if !matches!(
+        file_type,
+        ProblemFileType::Validator | ProblemFileType::Checker
+    ) {
+        return Err(format!("Filetype {} is not valid", file_type));
+    }
+
+    let problem_path = state.get_current_path()?;
+    let relative = Path::new(file_type.directory()).join(&file);
+    let full_path = problem_path.join(&relative);
+
+    if !full_path.exists() {
+        return Err(format!("File does not exist: {:?}", full_path));
+    }
+
+    // Only a file that compiles successfully may be selected as the problem's
+    // validator/checker, so a broken file can never be set as active.
+    let language =
+        ProgrammingLanguage::get_from_path(&relative).ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+    language
+        .compile(&relative, &problem_path, runner.inner().as_ref())
+        .await?;
+
     let mut current = state.current.write().err_to_string()?;
 
     if let Some(problem) = current.as_mut() {
-        let full_path = problem.path.join("files").join(&file);
-
-        if !full_path.exists() {
-            return Err(format!("File does not exist: {:?}", full_path));
-        }
-
         match file_type {
             ProblemFileType::Validator => problem.definition.validator = Some(file),
             ProblemFileType::Checker => problem.definition.checker = Some(file),
-            _ => return Err(format!("Filetype {} is not valid", file_type)),
+            _ => unreachable!("file_type was validated above"),
         }
 
-        problem.save_to_disk()?;
-
-        Ok(())
+        problem.save_to_disk()
     } else {
         Err(NO_PRBLM_ERR.to_string())
     }
