@@ -105,6 +105,8 @@ async function onSelect(_: Event, row: TableRow<string>) {
       if (props.type === "checker") problems.currentProblem.definition.checker = row.original;
       else problems.currentProblem.definition.validator = row.original;
     }
+
+    //await invoke("check_file_compilation", { file: row.original });
   } catch (e) {
     selection.value = {};
     throwError("Failed to select file");

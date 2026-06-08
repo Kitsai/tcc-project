@@ -24,6 +24,20 @@ impl ProblemManager {
             Err(NO_PRBLM_ERR.to_string())
         }
     }
+
+    pub fn get_current_validator_path(&self) -> Result<Option<PathBuf>, String> {
+        let curr = self.current.read().err_to_string()?;
+
+        if let Some(problem) = &*curr {
+            Ok(problem
+                .definition
+                .validator
+                .as_ref()
+                .map(|v| problem.path.join("files").join(v)))
+        } else {
+            Err(NO_PRBLM_ERR.to_string())
+        }
+    }
 }
 
 impl Default for ProblemManager {

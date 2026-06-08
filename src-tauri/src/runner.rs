@@ -1,11 +1,18 @@
-use std::fmt;
 use std::time::Duration;
+use std::{fmt, io::stderr};
 
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait Runner {
+pub trait Runner: Send + Sync + 'static {
     async fn execute(&self, request: ExecutionRequest) -> ExecutionResult;
+}
+
+#[async_trait]
+impl Runner for std::sync::Arc<dyn Runner> {
+    async fn execute(&self, request: ExecutionRequest) -> ExecutionResult {
+        self.as_ref().execute(request).await
+    }
 }
 
 pub type ExecutionResult = Result<ExecutionInfo, ExecutionError>;
@@ -62,6 +69,16 @@ pub struct ExecutionInfo {
     pub execution_time: Duration,
 }
 
+impl ExecutionInfo {
+    pub fn to_result(self) -> Result<String, String> {
+        if self.stderr.is_empty() {
+            Ok(self.stdout)
+        } else {
+            Err(self.stderr)
+        }
+    }
+}
+
 impl fmt::Display for ExecutionInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -86,6 +103,12 @@ impl fmt::Display for ExecutionError {
             Self::ME(size) => write!(f, "Memory limit exceeded: {}mb", size),
             Self::OTHER(message) => write!(f, "{}", message),
         }
+    }
+}
+
+impl Into<String> for ExecutionError {
+    fn into(self) -> String {
+        self.to_string()
     }
 }
 

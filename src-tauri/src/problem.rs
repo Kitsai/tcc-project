@@ -69,7 +69,7 @@ mod validator;
 
 pub use definition::ProblemDefinition;
 pub use dir::ProblemDir;
-pub use files::ProblemFileType;
+pub use files::{ExecutableSpec, ProblemFileType, ProgrammingLanguage};
 pub use manager::ProblemManager;
 pub use registration::ProblemRegistration;
 pub use statement::ProblemStatement;

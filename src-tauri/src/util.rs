@@ -1,6 +1,17 @@
 use std::{fmt::Display, fs, path::Path};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
+
+pub trait EventEmitter: Clone + Send + 'static {
+    fn emit<S: Serialize + Clone + Send + 'static>(&self, event: &str, payload: S);
+}
+
+impl<R: tauri::Runtime> EventEmitter for AppHandle<R> {
+    fn emit<S: Serialize + Clone + Send + 'static>(&self, event: &str, payload: S) {
+        Emitter::emit(self, event, payload).ok();
+    }
+}
 
 pub trait ResultExt {
     type Ok;
@@ -63,8 +74,4 @@ pub fn num_cpus() -> usize {
     std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4)
-}
-
-pub trait EventEmitter: Send + Sync {
-    fn emit<E: Serialize + Send>(&self, event: &str, payload: E);
 }

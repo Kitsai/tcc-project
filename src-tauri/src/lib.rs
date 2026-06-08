@@ -1,6 +1,6 @@
 use crate::lsp::{ClangdServer, LspBridge, LspRegistryBuilder, PyLspServer};
 use crate::problem::ProblemManager;
-use crate::runner::SimpleRunner;
+use crate::runner::{Runner, SimpleRunner};
 
 use std::sync::Arc;
 
@@ -81,7 +81,7 @@ pub fn run() {
 
     let lsp_bridge = LspBridge::new(lsp_registry.clone());
     let problem_manager = ProblemManager::new();
-    let runner = SimpleRunner::default();
+    let runner: Arc<dyn Runner> = Arc::new(SimpleRunner::default());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())

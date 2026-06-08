@@ -1,10 +1,11 @@
 <template>
   <div>
     <div class="py-2 flex justify-end gap-2">
-      <UButton label="Run Tests" variant="subtle" class="px-4" />
+      <UButton label="Run Tests" variant="subtle" class="px-4" :disabled="tableLoading || testsRunning"
+        @click="onRunAll" />
       <UButton label="Add Test" variant="subtle" class="px-4" @click="createModalOpen = true" />
     </div>
-    <UTable :loading="tableLoading" :columns="columns" :data="data">
+    <UTable :loading="tableLoading || testsRunning" :columns="columns" :data="data">
 
       <template #input-cell="{ row }">
         <span class="whitespace-pre-wrap">{{ row.original.input }}</span>
@@ -33,13 +34,15 @@
 
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
-import type { ValidatorTest } from '~/utils/ValidatorTest';
+import type { ValidatorTest, ValidatorTestError } from '~/utils/ValidatorTest';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 
-const { invoke } = useTauri();
+const { invoke, listen } = useTauri();
 const { throwSuccess, throwError } = useCustomToast();
 
 const tableLoading = ref(false);
+const testsRunning = ref(false);
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 
@@ -95,6 +98,17 @@ async function onCopy(content: string) {
   }
 }
 
+async function onRunAll() {
+  testsRunning.value = true;
+  try {
+    await invoke("run_validator_tests");
+  } catch (e) {
+    throwError("Error running tests: " + e);
+    console.error(e);
+  }
+  testsRunning.value = false;
+}
+
 const data = ref<ValidatorTest[]>([]);
 
 async function getFiles() {
@@ -110,6 +124,18 @@ async function getFiles() {
   tableLoading.value = false;
 }
 
-onMounted(getFiles);
 
+let unlistenResult: UnlistenFn;
+let unlistenError: UnlistenFn;
+
+onMounted(async () => {
+  await getFiles();
+  unlistenResult = await listen("validator_test_result", getFiles);
+  unlistenError = await listen<ValidatorTestError>("validator_test_error", (e) => throwError("Test " + e.payload.id + " failed with message " + e.payload.error));
+});
+
+onUnmounted(() => {
+  unlistenResult?.();
+  unlistenError?.();
+});
 </script>

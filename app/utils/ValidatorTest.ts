@@ -20,3 +20,8 @@ export interface ValidatorTestEditDto {
   input: string,
   verdict: string,
 }
+
+export interface ValidatorTestError {
+  id: number,
+  error: string,
+}

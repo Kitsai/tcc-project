@@ -1,5 +1,6 @@
 use std::{
     process::Stdio,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -17,7 +18,7 @@ pub struct SimpleRunner {
 impl SimpleRunner {
     pub fn new(concurrency: usize) -> Self {
         Self {
-            semaphore: Semaphore::new(concurrency),
+            semaphore: Arc::new(Semaphore::new(concurrency)),
         }
     }
 }
