@@ -56,7 +56,7 @@ impl ValidatorTest {
     pub fn new(id: u16, input: &str, expected: ValidatorTestResult) -> Self {
         Self {
             id,
-            input: input.to_string(),
+            input: input.trim().to_string(),
             expected,
             actual: ValidatorTestResult::None,
         }
@@ -66,7 +66,7 @@ impl ValidatorTest {
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
         if dto.mult {
-            let inputs: Vec<&str> = dto.input.split(MULT_SEPARATOR).map(str::trim).collect();
+            let inputs: Vec<&str> = dto.input.split(MULT_SEPARATOR).collect();
             let verdicts: Vec<&str> = dto.verdict.lines().collect();
 
             if inputs.len() != verdicts.len() {
@@ -74,7 +74,7 @@ impl ValidatorTest {
             }
 
             let mut current_id = dto.id;
-            let mut current_path = tests_path.join(format!("{:}", dto.id));
+            let mut current_path = tests_path.join(format!("{:02}", dto.id));
 
             for (input, verdict) in inputs.iter().zip(verdicts.iter()) {
                 let new_test = ValidatorTest::new(current_id, input, verdict.parse()?);
@@ -89,7 +89,7 @@ impl ValidatorTest {
                 }
             }
         } else {
-            let path = tests_path.join(format!("{:}", dto.id));
+            let path = tests_path.join(format!("{:02}", dto.id));
 
             if path.exists() {
                 return Err(format!("Test with id {} already exists", dto.id));
@@ -103,7 +103,7 @@ impl ValidatorTest {
     }
 
     pub fn edit(&mut self, input: &str, verdict: ValidatorTestResult) {
-        self.input = input.to_string();
+        self.input = input.trim().to_string();
         self.expected = verdict;
     }
 
@@ -154,7 +154,16 @@ impl ValidatorTest {
             let mut request = request_template.clone();
 
             let handle = tokio::spawn(async move {
-                request.with_input(&test.input);
+                let mut input = test.input.replace("\r\n", "\n");
+                if cfg!(windows) {
+                    input = input.replace('\n', "\r\n");
+                    if !input.ends_with("\r\n") {
+                        input.push_str("\r\n");
+                    }
+                } else if !input.ends_with('\n') {
+                    input.push('\n');
+                }
+                request.with_input(&input);
 
                 log::debug!("[run_all] running test id={}", test.id);
 
