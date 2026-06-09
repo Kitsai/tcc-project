@@ -3,8 +3,8 @@ use std::fs;
 use tauri::{AppHandle, State};
 
 use crate::{
-    constants::VALIDATOR_TESTS_PATH,
-    problem::{ProblemManager, ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto},
+    constants::{LANGUAGE_INVALID_ERR, VALIDATOR_TESTS_PATH},
+    problem::{ProblemManager, ProgrammingLanguage, ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto},
     runner::Runner,
     util::{next_available_id, Persistant, ResultExt},
 };
@@ -78,6 +78,16 @@ pub async fn run_validator_tests(
     let validator_path = problem_manager
         .get_current_validator_path()?
         .ok_or_else(|| "No validator configured for this problem".to_string())?;
+
+    log::debug!(
+        "[run_validator_tests] problem_path={:?} validator_path={:?}",
+        problem_path,
+        validator_path
+    );
+
+    let language = ProgrammingLanguage::get_from_path(&validator_path)
+        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+    language.compile(&validator_path, &problem_path, runner.inner().as_ref()).await?;
 
     ValidatorTest::run_all(&problem_path, validator_path, app, runner.inner().clone()).await
 }

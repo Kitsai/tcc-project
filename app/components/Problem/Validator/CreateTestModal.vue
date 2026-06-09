@@ -14,7 +14,8 @@
           <UTextarea v-model="state.input" />
         </UFormField>
         <UFormField label="Verdict(s)" name="verdict">
-          <UTextarea v-model="state.verdict" />
+          <UTextarea v-if="state.mult" v-model="state.verdict" />
+          <ProblemValidatorResultSelect v-else v-model="state.verdict" />
         </UFormField>
         <UButton class="w-fit" type="submit" label="Create" />
       </UForm>
@@ -23,7 +24,6 @@
 </template>
 
 <script setup lang="ts">
-import type { FormSubmitEvent } from '@nuxt/ui';
 const { invoke } = useTauri();
 const { throwError } = useCustomToast();
 
@@ -37,16 +37,15 @@ const state = reactive<ValidatorTestCreateDto>({
   id: 0,
   mult: false,
   input: "",
-  verdict: ""
+  verdict: "VALID"
 });
 
-type Schema = typeof state;
 
 watch(open, async (val) => {
   if (val) {
     state.id = await invoke<number>("get_next_validator_test_id");
   } else {
-    Object.assign(state, { mult: false, input: "", verdict: "" });
+    Object.assign(state, { mult: false, input: "", verdict: "VALID" });
   }
 });
 
@@ -54,7 +53,7 @@ function close() {
   open.value = false;
 }
 
-async function onSubmit(_event: FormSubmitEvent<Schema>) {
+async function onSubmit() {
 
   try {
     await invoke("create_validator_test", { test: { ...state } })

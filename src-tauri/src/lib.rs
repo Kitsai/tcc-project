@@ -61,13 +61,19 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Debug)
-                        .build(),
-                )?;
-            }
+            let level = std::env::var("RUST_LOG")
+                .ok()
+                .and_then(|s| s.parse::<log::LevelFilter>().ok())
+                .unwrap_or(if cfg!(debug_assertions) {
+                    log::LevelFilter::Debug
+                } else {
+                    log::LevelFilter::Info
+                });
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(level)
+                    .build(),
+            )?;
             Ok(())
         })
         .manage(settings)

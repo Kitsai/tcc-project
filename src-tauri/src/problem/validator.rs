@@ -66,7 +66,7 @@ impl ValidatorTest {
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
         if dto.mult {
-            let inputs: Vec<&str> = dto.input.split(MULT_SEPARATOR).collect();
+            let inputs: Vec<&str> = dto.input.split(MULT_SEPARATOR).map(str::trim).collect();
             let verdicts: Vec<&str> = dto.verdict.lines().collect();
 
             if inputs.len() != verdicts.len() {
@@ -137,6 +137,14 @@ impl ValidatorTest {
             .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
         let request_template = language.resolve(&validator_path, problem_path).into_request();
 
+        log::debug!(
+            "[run_all] validator={:?} command={:?} args={:?} tests={}",
+            validator_path,
+            request_template.command,
+            request_template.args,
+            tests.len()
+        );
+
         let mut handles = Vec::new();
 
         for test in tests {
@@ -148,8 +156,11 @@ impl ValidatorTest {
             let handle = tokio::spawn(async move {
                 request.with_input(&test.input);
 
+                log::debug!("[run_all] running test id={}", test.id);
+
                 let actual = match runner.execute(request).await {
                     Err(e) => {
+                        log::debug!("[run_all] test id={} runner error: {}", test.id, e);
                         emitter.emit(
                             "validator_test_error",
                             ValidatorTestError {
@@ -159,19 +170,19 @@ impl ValidatorTest {
                         );
                         return;
                     }
-                    Ok(info) => match info.stdout.trim().parse::<ValidatorTestResult>() {
-                        Ok(result) => result,
-                        Err(e) => {
-                            emitter.emit(
-                                "validator_test_error",
-                                ValidatorTestError {
-                                    id: test.id,
-                                    error: e,
-                                },
-                            );
-                            return;
+                    Ok(info) => {
+                        log::debug!(
+                            "[run_all] test id={} exit={} stderr={:?}",
+                            test.id,
+                            info.exit_code,
+                            info.stderr.trim()
+                        );
+                        if info.exit_code == 0 {
+                            ValidatorTestResult::Valid
+                        } else {
+                            ValidatorTestResult::Invalid
                         }
-                    },
+                    }
                 };
 
                 let mut updated = test;

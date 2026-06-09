@@ -38,6 +38,8 @@ impl Runner for SimpleRunner {
             .await
             .map_err(|err| ExecutionError::OTHER(err.to_string()))?;
 
+        log::debug!("[runner] command={:?} args={:?}", request.command, request.args);
+
         let mut command = tokio::process::Command::new(request.command);
         command
             .args(request.args)

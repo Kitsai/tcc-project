@@ -8,7 +8,7 @@
             <UTextarea v-model="state.input" />
           </UFormField>
           <UFormField label="Verdict" name="verdict">
-            <UTextarea v-model="state.verdict" />
+            <ProblemValidatorResultSelect v-model="state.verdict" />
           </UFormField>
           <UButton type="submit" label="Save" class="w-fit" />
         </UForm>
