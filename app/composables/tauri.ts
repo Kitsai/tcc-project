@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
+import {
+  appConfigDir,
+  appDataDir,
+  appLocalDataDir,
+  resourceDir,
+} from "@tauri-apps/api/path";
 
 export const useTauri = () => {
   const isTauri =
