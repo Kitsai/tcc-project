@@ -135,7 +135,9 @@ impl ValidatorTest {
 
         let language = ProgrammingLanguage::get_from_path(&validator_path)
             .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-        let request_template = language.resolve(&validator_path, problem_path).into_request();
+        let request_template = language
+            .resolve(&validator_path, problem_path)
+            .into_request();
 
         log::debug!(
             "[run_all] validator={:?} command={:?} args={:?} tests={}",
@@ -154,14 +156,10 @@ impl ValidatorTest {
             let mut request = request_template.clone();
 
             let handle = tokio::spawn(async move {
-                let mut input = test.input.replace("\r\n", "\n");
+                let mut input = test.input.trim().replace("\r\n", "\n");
+                input.push('\n');
                 if cfg!(windows) {
                     input = input.replace('\n', "\r\n");
-                    if !input.ends_with("\r\n") {
-                        input.push_str("\r\n");
-                    }
-                } else if !input.ends_with('\n') {
-                    input.push('\n');
                 }
                 request.with_input(&input);
 

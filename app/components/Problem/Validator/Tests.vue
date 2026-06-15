@@ -1,10 +1,6 @@
 <template>
   <div>
-    <div class="py-2 flex justify-end gap-2">
-      <UButton label="Run Tests" variant="subtle" class="px-4" :disabled="tableLoading || testsRunning"
-        @click="onRunAll" />
-      <UButton label="Add Test" variant="subtle" class="px-4" @click="createModalOpen = true" />
-    </div>
+    <ProblemTestTableButtons :disabled="tableLoading || testsRunning" @run="onRunAll" @add="createModalOpen = true" />
     <UTable :loading="tableLoading || testsRunning" :columns="columns" :data="data">
 
       <template #input-cell="{ row }">
