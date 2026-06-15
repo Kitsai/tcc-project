@@ -1,7 +1,7 @@
 <template>
   <div>
-    <ProblemTestTableButtons :disabled="tableLoading || testsRunning" @run="onRunAll" @add="createModalOpen = true" />
-    <UTable :loading="tableLoading || testsRunning" :columns="columns" :data="data">
+    <ProblemTestTableButtons :disabled="tableDisabled" @run="onRunAll" @add="createModalOpen = true" />
+    <UTable :loading="tableDisabled" :columns="columns" :data="data">
 
       <template #input-cell="{ row }">
         <span class="whitespace-pre-wrap">{{ row.original.input }}</span>
@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
-import type { ValidatorTest, ValidatorTestError } from '~/utils/ValidatorTest';
+import type { ValidatorTest, ValidatorTestError } from '~/types/validator/ValidatorTest';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
@@ -39,6 +39,8 @@ const { throwSuccess, throwError } = useCustomToast();
 
 const tableLoading = ref(false);
 const testsRunning = ref(false);
+const tableDisabled = computed(() => tableLoading.value || testsRunning.value);
+
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 
