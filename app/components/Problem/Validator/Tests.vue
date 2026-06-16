@@ -8,17 +8,8 @@
       </template>
 
       <template #actions-cell="{ row }">
-        <div class="flex items-center gap-2">
-          <UTooltip text="Delete this test">
-            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="onDelete(row.original.id)" />
-          </UTooltip>
-          <UTooltip text="Edit this test">
-            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="onEdit(row.original)" />
-          </UTooltip>
-          <UTooltip>
-            <UButton icon="i-lucide-copy" color="neutral" variant="ghost" @click.stop="onCopy(row.original.input)" />
-          </UTooltip>
-        </div>
+        <ProblemTestTableSimpleActions @delete="onDelete(row.original.id)" @edit="onEdit(row.original)"
+          @copy="onCopy(row.original.input)" />
       </template>
     </UTable>
 
