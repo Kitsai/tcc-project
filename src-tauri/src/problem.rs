@@ -64,6 +64,7 @@ mod dir;
 mod files;
 mod manager;
 mod registration;
+mod solutions;
 mod statement;
 mod validator;
 

@@ -22,6 +22,9 @@ const navItems = [
   },
   {
     label: 'Validator', to: { path: '/problem/validator' }
+  },
+  {
+    label: 'Solution Files', to: { path: '/problem/solution' }
   }
 ];
 </script>
