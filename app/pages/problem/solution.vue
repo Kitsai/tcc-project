@@ -1,7 +1,7 @@
 <template>
   <div class="flex justify-end py-2 gap-2">
     <ProblemSolutionNewFileButton />
-    <ProblemSolutionAddFilesButton />
+    <ProblemSolutionAddFilesButton @files-added="updateData" />
   </div>
   <UTable :columns="columns" :data="data">
     <template #tag-cell="{ row }">
@@ -52,7 +52,7 @@ function onTagChange(index: number, tag: SolutionTag) {
 
 async function onDeleteSolution(solution: SolutionDescription) {
   try {
-    await invoke("delete_solution");
+    await invoke("delete_solution", { fileName: solution.file_name });
   } catch (e) {
     console.error(e);
     throwError("Failed to delete solution");

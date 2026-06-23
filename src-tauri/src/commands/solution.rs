@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tauri::State;
 
 use crate::{
@@ -22,4 +24,17 @@ pub async fn delete_solution(
     let project_path = project.get_current_path()?;
 
     SolutionDescription::delete_solution(&project_path, file_name)
+}
+
+#[tauri::command]
+pub async fn add_solution_files(
+    paths: Vec<PathBuf>,
+    problem: State<'_, ProblemManager>,
+) -> StringResult<()> {
+    let problem_path = problem.get_current_path()?;
+
+    for path in paths {
+        SolutionDescription::create_from_existing(path, &problem_path)?;
+    }
+    Ok(())
 }

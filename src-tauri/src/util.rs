@@ -1,7 +1,10 @@
 use std::{fmt::Display, fs, path::Path};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{
+    webview::cookie::time::{Month, UtcDateTime, Weekday},
+    AppHandle, Emitter,
+};
 
 pub trait EventEmitter: Clone + Send + 'static {
     fn emit<S: Serialize + Clone + Send + 'static>(&self, event: &str, payload: S);
@@ -77,3 +80,42 @@ pub fn num_cpus() -> usize {
 }
 
 pub type StringResult<T> = Result<T, String>;
+
+/// Current UTC time as `"Tue Feb 10 00:28:04 UTC 2026"`.
+pub fn now() -> String {
+    let now = UtcDateTime::now();
+
+    let weekday = match now.weekday() {
+        Weekday::Monday => "Mon",
+        Weekday::Tuesday => "Tue",
+        Weekday::Wednesday => "Wed",
+        Weekday::Thursday => "Thu",
+        Weekday::Friday => "Fri",
+        Weekday::Saturday => "Sat",
+        Weekday::Sunday => "Sun",
+    };
+
+    let month = match now.month() {
+        Month::January => "Jan",
+        Month::February => "Feb",
+        Month::March => "Mar",
+        Month::April => "Apr",
+        Month::May => "May",
+        Month::June => "Jun",
+        Month::July => "Jul",
+        Month::August => "Aug",
+        Month::September => "Sep",
+        Month::October => "Oct",
+        Month::November => "Nov",
+        Month::December => "Dec",
+    };
+
+    format!(
+        "{weekday} {month} {:02} {:02}:{:02}:{:02} UTC {}",
+        now.day(),
+        now.hour(),
+        now.minute(),
+        now.second(),
+        now.year(),
+    )
+}
