@@ -75,3 +75,5 @@ pub fn num_cpus() -> usize {
         .map(|n| n.get())
         .unwrap_or(4)
 }
+
+pub type StringResult<T> = Result<T, String>;

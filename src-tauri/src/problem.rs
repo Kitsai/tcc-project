@@ -73,6 +73,7 @@ pub use dir::ProblemDir;
 pub use files::{get_include_paths, ExecutableSpec, ProblemFileType, ProgrammingLanguage};
 pub use manager::ProblemManager;
 pub use registration::ProblemRegistration;
+pub use solutions::{SolutionDescription, SolutionTag};
 pub use statement::ProblemStatement;
 pub use validator::{
     ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,

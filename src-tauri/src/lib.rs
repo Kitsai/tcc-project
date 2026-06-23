@@ -69,11 +69,8 @@ pub fn run() {
                 } else {
                     log::LevelFilter::Info
                 });
-            app.handle().plugin(
-                tauri_plugin_log::Builder::default()
-                    .level(level)
-                    .build(),
-            )?;
+            app.handle()
+                .plugin(tauri_plugin_log::Builder::default().level(level).build())?;
             Ok(())
         })
         .manage(settings)
@@ -92,6 +89,7 @@ pub fn run() {
             commands::validator::edit_validator_test,
             commands::validator::delete_validator_test,
             commands::validator::run_validator_tests,
+            commands::solution::get_solutions,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,

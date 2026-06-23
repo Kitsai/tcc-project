@@ -5,11 +5,21 @@
   </div>
   <UTable :columns="columns" :data="data">
     <template #tag-cell="{ row }">
-      <span :class="success_tag(row.original.tag) ? 'text-success' : 'text-error'">{{ tag_to_text(row.original.tag)
-        }}</span>
+      <USelect :model-value="row.original.tag" :items="tagItems" variant="ghost"
+        :class="success_tag(row.original.tag) ? 'text-success' : 'text-error'"
+        @update:model-value="(tag) => onTagChange(row.index, tag)" />
     </template>
 
     <template #actions-cell="{ row }">
+      <div class="flex items-center gap-2">
+        <UTooltip text="Delete this solution">
+          <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="onDeleteSolution(row.original)" />
+        </UTooltip>
+        <UTooltip text="Edit this solution">
+          <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost"
+            @click.stop="onEditSolution(row.original)" />
+        </UTooltip>
+      </div>
     </template>
 
   </UTable>
@@ -17,7 +27,45 @@
 
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
-import { success_tag, tag_to_text, type SolutionDescription } from '~/types/solution';
+import { SOLUTION_TAGS, success_tag, tag_to_text, type SolutionDescription, type SolutionTag } from '~/types/solution/SolutionDescription';
+
+const { invoke } = useTauri();
+const { throwError } = useCustomToast()
+
+const tagItems = SOLUTION_TAGS.map((tag) => ({ label: tag_to_text(tag), value: tag }));
+
+const data = ref<SolutionDescription[]>([]);
+
+async function updateData() {
+  try {
+    data.value = await invoke<SolutionDescription[]>("get_solutions");
+  } catch (e) {
+    console.error(e);
+    throwError("Failed to get solutions");
+  }
+}
+
+function onTagChange(index: number, tag: SolutionTag) {
+  if (data.value[index])
+    data.value[index].tag = tag;
+}
+
+async function onDeleteSolution(solution: SolutionDescription) {
+  try {
+    await invoke("delete_solution");
+  } catch (e) {
+    console.error(e);
+    throwError("Failed to delete solution");
+  }
+
+  updateData();
+}
+
+function onEditSolution(solution: SolutionDescription) {
+
+}
+
+onMounted(updateData);
 
 const columns: TableColumn<SolutionDescription>[] = [
   {
@@ -44,18 +92,4 @@ const columns: TableColumn<SolutionDescription>[] = [
   }
 ]
 
-const data: SolutionDescription[] = [
-  {
-    author: "Kitsai",
-    file_name: "solution.cpp",
-    tag: 'MAIN',
-    change_time: "2026-06-16 19:38",
-  },
-  {
-    author: "Kitsai",
-    file_name: "wrong.cpp",
-    tag: 'WRONG_ANSWER',
-    change_time: "2026-06-16 19:48",
-  }
-]
 </script>

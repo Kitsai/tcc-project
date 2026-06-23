@@ -11,6 +11,7 @@ pub const BINARY_EXTENSION: &str = "";
 pub const BINARY_DIR: &str = "bin";
 pub const VALIDATOR_TESTS_PATH: &str = "tests/validator";
 pub const CHECKER_TESTS_PATH: &str = "tests/checker";
+pub const SOLUTIONS_PATH: &str = "solutions";
 
 /// COMMANDS
 pub const PYTHON_INTERPRETER: &str = "python3";
