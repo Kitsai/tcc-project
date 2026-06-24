@@ -1,6 +1,6 @@
 <template>
   <div class="flex justify-end py-2 gap-2">
-    <ProblemSolutionNewFileButton />
+    <ButtonTextField label="New File" @submit="onNewFile" />
     <ProblemSolutionAddFilesButton @files-added="updateData" />
   </div>
   <UTable :columns="columns" :data="data">
@@ -31,6 +31,7 @@ import { SOLUTION_TAGS, success_tag, tag_to_text, type SolutionDescription, type
 
 const { invoke } = useTauri();
 const { throwError } = useCustomToast()
+const router = useRouter();
 
 const tagItems = SOLUTION_TAGS.map((tag) => ({ label: tag_to_text(tag), value: tag }));
 
@@ -61,11 +62,34 @@ async function onDeleteSolution(solution: SolutionDescription) {
   updateData();
 }
 
-function onEditSolution(solution: SolutionDescription) {
+function openInEditor(fileName: string) {
+  router.push({
+    path: '/problem/editor',
+    query: {
+      type: 'solution',
+      file: fileName
+    }
+  });
+}
 
+function onEditSolution(solution: SolutionDescription) {
+  openInEditor(solution.file_name);
+}
+
+async function onNewFile(fileName: string) {
+  try {
+    await invoke("create_new_solution", { fileName });
+  } catch (e) {
+    console.error(e)
+    throwError("Failed to create new file");
+    return;
+  }
+
+  openInEditor(fileName);
 }
 
 onMounted(updateData);
+onActivated(updateData);
 
 const columns: TableColumn<SolutionDescription>[] = [
   {

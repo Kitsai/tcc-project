@@ -91,6 +91,7 @@ pub fn run() {
             commands::validator::run_validator_tests,
             commands::solution::get_solutions,
             commands::solution::delete_solution,
+            commands::solution::create_new_solution,
             commands::solution::add_solution_files,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,

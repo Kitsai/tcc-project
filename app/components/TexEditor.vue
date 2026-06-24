@@ -83,7 +83,7 @@ watch(model, (newValue) => {
   if (!editor.value.isFocused) {
     const currentTex = getTexFromEditor(editor.value);
     if (newValue !== currentTex) {
-      editor.value.commands.setContent(newValue || '', false);
+      editor.value.commands.setContent(newValue || '', { emitUpdate: false });
       migrateMathStrings(editor.value);
     }
   }

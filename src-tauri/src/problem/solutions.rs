@@ -162,6 +162,14 @@ impl SolutionDescription {
         fs::remove_file(Self::desc_path(project_path, &file_name)).err_to_string()
     }
 
+    pub fn create_new(file_name: String, problem_path: &Path) -> StringResult<()> {
+        let destination = problem_path.join(SOLUTIONS_PATH).join(&file_name);
+
+        fs::File::create_new(destination).err_to_string()?;
+
+        Self::new(file_name).save_solution(problem_path)
+    }
+
     pub fn create_from_existing(full_path: PathBuf, problem_path: &Path) -> StringResult<()> {
         let file_name = full_path
             .file_name()

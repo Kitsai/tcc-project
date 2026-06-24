@@ -27,6 +27,16 @@ pub async fn delete_solution(
 }
 
 #[tauri::command]
+pub async fn create_new_solution(
+    file_name: String,
+    problem: State<'_, ProblemManager>,
+) -> StringResult<()> {
+    let problem_path = problem.get_current_path()?;
+
+    SolutionDescription::create_new(file_name, &problem_path)
+}
+
+#[tauri::command]
 pub async fn add_solution_files(
     paths: Vec<PathBuf>,
     problem: State<'_, ProblemManager>,

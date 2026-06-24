@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import type { ValidatorTest, ValidatorTestEditDto } from '~/types/validator/ValidatorTest';
+
 const { invoke } = useTauri();
 const { throwError } = useCustomToast();
 

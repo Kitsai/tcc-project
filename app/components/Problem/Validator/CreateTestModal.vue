@@ -24,6 +24,8 @@
 </template>
 
 <script setup lang="ts">
+import type { ValidatorTestCreateDto } from '~/types/validator/ValidatorTest';
+
 const { invoke } = useTauri();
 const { throwError } = useCustomToast();
 
