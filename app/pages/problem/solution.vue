@@ -1,4 +1,5 @@
 <template>
+  <div class="flex flex-col">
   <div class="flex justify-end py-2 gap-2">
     <ButtonTextField label="New File" @submit="onNewFile" />
     <ProblemSolutionAddFilesButton @files-added="updateData" />
@@ -23,6 +24,7 @@
     </template>
 
   </UTable>
+  </div>
 </template>
 
 <script setup lang="ts">
