@@ -13,10 +13,10 @@ use crate::{
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SolutionDescription {
-    file_name: String,
-    tag: SolutionTag,
-    author: Option<String>,
-    change_time: String,
+    pub file_name: String,
+    pub tag: SolutionTag,
+    pub author: Option<String>,
+    pub change_time: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -98,7 +98,25 @@ impl SolutionDescription {
         self.save(&Self::desc_path(problem_path, &self.file_name))
     }
 
-    pub fn load_all(problem_path: &Path) -> Result<Vec<SolutionDescription>, String> {
+    fn load_descs(problem_path: &Path) -> StringResult<Vec<SolutionDescription>> {
+        let solution_path = problem_path.join(SOLUTIONS_PATH);
+        let mut descriptions: Vec<SolutionDescription> = vec![];
+
+        let dir_entries = fs::read_dir(solution_path).err_to_string()?;
+        for entry in dir_entries.flatten() {
+            if entry.file_name().to_string_lossy().ends_with(".desc") {
+                descriptions.push(Self::load(&entry.path())?);
+            }
+        }
+
+        Ok(descriptions)
+    }
+
+    pub fn load_all(problem_path: &Path) -> StringResult<Vec<SolutionDescription>> {
+        Self::load_descs(problem_path)
+    }
+
+    pub fn verify_and_load(problem_path: &Path) -> StringResult<Vec<SolutionDescription>> {
         let solution_path = problem_path.join(SOLUTIONS_PATH);
 
         let mut descriptions: Vec<SolutionDescription> = vec![];
@@ -117,7 +135,58 @@ impl SolutionDescription {
             }
         }
 
-        Self::verify_descriptions(problem_path, descriptions, sources)
+        let mut verified = Self::verify_descriptions(problem_path, descriptions, sources)?;
+        Self::enforce_single_main(problem_path, &mut verified)?;
+        Ok(verified)
+    }
+
+    fn enforce_single_main(problem_path: &Path, descriptions: &mut Vec<SolutionDescription>) -> StringResult<()> {
+        let mut found_main = false;
+        for desc in descriptions.iter_mut() {
+            if matches!(desc.tag, SolutionTag::Main) {
+                if found_main {
+                    desc.tag = SolutionTag::Accepted;
+                    desc.save_solution(problem_path)?;
+                } else {
+                    found_main = true;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn change_tag(
+        problem_path: &Path,
+        file_name: &str,
+        new_tag: SolutionTag,
+    ) -> StringResult<Vec<SolutionDescription>> {
+        if matches!(new_tag, SolutionTag::Main) {
+            let mut descriptions = Self::load_descs(problem_path)?;
+
+            for desc in &mut descriptions {
+                if matches!(desc.tag, SolutionTag::Main) && desc.file_name != file_name {
+                    desc.tag = SolutionTag::Accepted;
+                    desc.save_solution(problem_path)?;
+                }
+            }
+
+            match descriptions.iter_mut().find(|d| d.file_name == file_name) {
+                Some(desc) => {
+                    desc.tag = SolutionTag::Main;
+                    desc.save_solution(problem_path)?;
+                }
+                None => return Err(format!("Solution '{file_name}' not found")),
+            }
+
+            Ok(descriptions)
+        } else {
+            let path = Self::desc_path(problem_path, file_name);
+            let mut desc = Self::load(&path)
+                .map_err(|_| format!("Solution '{file_name}' not found"))?;
+            desc.tag = new_tag;
+            desc.save_solution(problem_path)?;
+            Self::load_descs(problem_path)
+        }
     }
 
     /// Reconciles descriptors with the source files actually present on disk:

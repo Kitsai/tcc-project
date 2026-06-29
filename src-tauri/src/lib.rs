@@ -93,6 +93,8 @@ pub fn run() {
             commands::solution::delete_solution,
             commands::solution::create_new_solution,
             commands::solution::add_solution_files,
+            commands::solution::change_tag,
+            commands::solution::verify_solutions,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,

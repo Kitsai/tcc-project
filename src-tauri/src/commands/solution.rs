@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tauri::State;
 
 use crate::{
-    problem::{ProblemManager, SolutionDescription},
+    problem::{ProblemManager, SolutionDescription, SolutionTag},
     util::StringResult,
 };
 
@@ -47,4 +47,27 @@ pub async fn add_solution_files(
         SolutionDescription::create_from_existing(path, &problem_path)?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn change_tag(
+    file_name: String,
+    tag: SolutionTag,
+    state: State<'_, ProblemManager>,
+) -> StringResult<Vec<SolutionDescription>> {
+    let path = state.get_current_path()?;
+
+    let solutions = SolutionDescription::change_tag(&path, &file_name, tag)?;
+    state.sync_main_solution(&solutions)?;
+    Ok(solutions)
+}
+
+#[tauri::command]
+pub async fn verify_solutions(
+    state: State<'_, ProblemManager>,
+) -> StringResult<Vec<SolutionDescription>> {
+    let path = state.get_current_path()?;
+    let solutions = SolutionDescription::verify_and_load(&path)?;
+    state.sync_main_solution(&solutions)?;
+    Ok(solutions)
 }

@@ -1,6 +1,7 @@
 <template>
   <div>
-    <UContainer class="py-2 flex justify-end">
+    <UContainer class="py-2 flex justify-end gap-2">
+      <UButton icon="i-lucide-refresh-cw" variant="ghost" :loading="tableLoading" @click="getFiles" />
       <ButtonTextField label="Add File" :loading="tableLoading" @submit="onAddFile" />
     </UContainer>
 
@@ -61,7 +62,7 @@ const selection = ref<Record<string, boolean>>({});
 const { invoke } = useTauri();
 const { throwError } = useCustomToast();
 const problems = useProblems();
-const router = useRouter();
+const { openInEditor } = useProblemEditor();
 
 async function getFiles() {
   tableLoading.value = true;
@@ -123,13 +124,7 @@ async function onAddFile(name: string) {
 }
 
 function onEdit(filename: string) {
-  router.push({
-    path: '/problem/editor',
-    query: {
-      type: props.type,
-      file: filename
-    }
-  });
+  openInEditor(props.type, filename);
 }
 async function onRemove(filename: string) {
   try {
