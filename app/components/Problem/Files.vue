@@ -1,7 +1,6 @@
 <template>
   <div>
     <UContainer class="py-2 flex justify-end gap-2">
-      <UButton icon="i-lucide-refresh-cw" variant="ghost" :loading="tableLoading" @click="getFiles" />
       <ButtonTextField label="Add File" :loading="tableLoading" @submit="onAddFile" />
     </UContainer>
 
@@ -18,6 +17,14 @@
           <span :class="{ 'font-bold text-primary-600 dark:text-primary-400': selection[row.id] }">
             {{ row.original }}
           </span>
+        </div>
+      </template>
+
+      <template #actions-header>
+        <div class="flex justify-end">
+          <UTooltip text="Refresh">
+            <UButton icon="i-lucide-refresh-cw" variant="ghost" :loading="tableLoading" @click="getFiles" />
+          </UTooltip>
         </div>
       </template>
 

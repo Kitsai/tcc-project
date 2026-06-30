@@ -1,3 +1,4 @@
+pub mod checker;
 pub mod compile;
 pub mod files;
 pub mod lsp;

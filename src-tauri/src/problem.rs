@@ -59,6 +59,7 @@ impl Persistant for Problem {
     }
 }
 
+mod checker;
 mod definition;
 mod dir;
 mod files;
@@ -75,6 +76,9 @@ pub use manager::ProblemManager;
 pub use registration::ProblemRegistration;
 pub use solutions::{SolutionDescription, SolutionTag};
 pub use statement::ProblemStatement;
+pub use checker::{
+    CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, CheckerTestError, CheckerVerdict,
+};
 pub use validator::{
     ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,
 };

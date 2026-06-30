@@ -61,6 +61,21 @@ impl ProblemManager {
             Err(NO_PRBLM_ERR.to_string())
         }
     }
+
+    /// Returns the checker's source path, relative to the problem's root directory.
+    pub fn get_current_checker_path(&self) -> Result<Option<PathBuf>, String> {
+        let curr = self.current.read().err_to_string()?;
+
+        if let Some(problem) = &*curr {
+            Ok(problem
+                .definition
+                .checker
+                .as_ref()
+                .map(|c| Path::new(ProblemFileType::Checker.directory()).join(c)))
+        } else {
+            Err(NO_PRBLM_ERR.to_string())
+        }
+    }
 }
 
 impl Default for ProblemManager {

@@ -18,3 +18,16 @@ export interface CheckerTestCreateDto {
   answer: string,
   verdict: string,
 }
+
+export interface CheckerTestEditDto {
+  id: number,
+  input: string,
+  output: string,
+  answer: string,
+  verdict: string,
+}
+
+export interface CheckerTestError {
+  id: number,
+  error: string,
+}
