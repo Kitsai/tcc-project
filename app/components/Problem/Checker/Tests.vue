@@ -1,7 +1,13 @@
 <template>
   <div>
     <ProblemTestTableButtons :disabled="tableDisabled" @run="onRunAll" @add="createModalOpen = true" />
-    <UTable :loading="tableDisabled" :columns="columns" :data="data">
+    <UTable :loading="tableDisabled" :columns="columns" :data="data"
+      :meta="{
+        class: {
+          tr: (row: any) => row.original.actual !== '' && row.original.actual !== row.original.expected
+            ? 'bg-red-50 dark:bg-red-950/30' : ''
+        }
+      }">
       <template #input-cell="{ row }">
         <EscapedText>{{ row.original.input }}</EscapedText>
       </template>
