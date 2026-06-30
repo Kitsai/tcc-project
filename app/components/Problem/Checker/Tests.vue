@@ -46,6 +46,7 @@ import type { TableColumn } from '@nuxt/ui';
 import type { CheckerTest, CheckerTestError } from '~/types/checker/CheckerTest';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { UnlistenFn } from '@tauri-apps/api/event';
+import { applyTestResult } from '~/utils/applyTestResult';
 
 const { invoke, listen } = useTauri();
 const { throwSuccess, throwError } = useCustomToast();
@@ -148,7 +149,9 @@ let unlistenError: UnlistenFn;
 
 onMounted(async () => {
   await updateTests();
-  unlistenResult = await listen("checker_test_result", updateTests);
+  unlistenResult = await listen<CheckerTest>("checker_test_result", (e) => {
+    applyTestResult(data.value, { id: e.payload.id, actual: e.payload.actual, comment: e.payload.comment });
+  });
   unlistenError = await listen<CheckerTestError>("checker_test_error", (e) => throwError("Test " + e.payload.id + " failed with message " + e.payload.error));
 });
 

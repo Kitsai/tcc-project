@@ -30,6 +30,7 @@ import type { TableColumn } from '@nuxt/ui';
 import type { ValidatorTest, ValidatorTestError } from '~/types/validator/ValidatorTest';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { UnlistenFn } from '@tauri-apps/api/event';
+import { applyTestResult } from '~/utils/applyTestResult';
 
 const { invoke, listen } = useTauri();
 const { throwSuccess, throwError } = useCustomToast();
@@ -125,7 +126,9 @@ let unlistenError: UnlistenFn;
 
 onMounted(async () => {
   await getFiles();
-  unlistenResult = await listen("validator_test_result", getFiles);
+  unlistenResult = await listen<ValidatorTest>("validator_test_result", (e) => {
+    applyTestResult(data.value, { id: e.payload.id, actual: e.payload.actual });
+  });
   unlistenError = await listen<ValidatorTestError>("validator_test_error", (e) => throwError("Test " + e.payload.id + " failed with message " + e.payload.error));
 });
 
