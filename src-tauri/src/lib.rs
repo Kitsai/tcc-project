@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 pub mod commands;
 mod constants;
+pub mod error;
 pub mod lsp;
 pub mod polygon;
 pub mod problem;

@@ -45,6 +45,7 @@ tauri-plugin-clipboard-manager = "2"
 lsp-types = "0.97.0"
 tokio-tungstenite = "0.29.0"
 futures = "0.3.32"
+thiserror = "2.0.18"
 
 [dev-dependencies]
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }

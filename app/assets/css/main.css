@@ -1,5 +1,12 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/outfit";
+
+@theme {
+  --font-sans: 'JetBrains Mono Variable', monospace;
+  --font-outfit: 'Outfit Variable', sans-serif;
+}
 
 :root {
     /* Light mode background */
