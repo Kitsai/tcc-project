@@ -15,12 +15,13 @@
 
       <template #actions-cell="{ row }">
         <ProblemTestTableSimpleActions @delete="onDelete(row.original.id)" @edit="onEdit(row.original)"
-          @copy="onCopy(row.original.input)" />
+          @copy="onCopy(row.original)" />
       </template>
     </UTable>
 
     <!-- Modals -->
-    <LazyProblemValidatorCreateTestModal v-model:open="createModalOpen" @success="getFiles" />
+    <LazyProblemValidatorCreateTestModal v-model:open="createModalOpen" :copy-from="copyFromTest"
+      @success="getFiles" @update:open="val => { if (!val) copyFromTest = null }" />
     <LazyProblemValidatorEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="getFiles" />
   </div>
 </template>
@@ -28,12 +29,11 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
 import type { ValidatorTest, ValidatorTestError } from '~/types/validator/ValidatorTest';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { applyTestResult } from '~/utils/applyTestResult';
 
 const { invoke, listen } = useTauri();
-const { throwSuccess, throwError } = useCustomToast();
+const { throwError } = useCustomToast();
 
 const tableLoading = ref(false);
 const testsRunning = ref(false);
@@ -42,7 +42,8 @@ const tableDisabled = computed(() => tableLoading.value || testsRunning.value);
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 
-const selectedTest = ref<ValidatorTest | null>(null)
+const selectedTest = ref<ValidatorTest | null>(null);
+const copyFromTest = ref<ValidatorTest | null>(null);
 
 const columns: TableColumn<ValidatorTest>[] = [
   {
@@ -85,13 +86,9 @@ function onEdit(test: ValidatorTest) {
   editModalOpen.value = true;
 }
 
-async function onCopy(content: string) {
-  try {
-    await writeText(content);
-    throwSuccess("Input copied to clipboard!");
-  } catch (e) {
-    console.error(e);
-  }
+function onCopy(test: ValidatorTest) {
+  copyFromTest.value = test;
+  createModalOpen.value = true;
 }
 
 async function onRunAll() {

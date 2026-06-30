@@ -30,13 +30,14 @@
         <ProblemTestTableSimpleActions
           @delete="onDelete(row.original.id)"
           @edit="onEdit(row.original)"
-          @copy="onCopy(row.original.input)"
+          @copy="onCopy(row.original)"
         />
       </template>
     </UTable>
 
     <!-- Modals -->
-    <LazyProblemCheckerCreateTestModal v-model:open="createModalOpen" @success="updateTests" />
+    <LazyProblemCheckerCreateTestModal v-model:open="createModalOpen" :copy-from="copyFromTest"
+      @success="updateTests" @update:open="val => { if (!val) copyFromTest = null }" />
     <LazyProblemCheckerEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="updateTests" />
   </div>
 </template>
@@ -44,12 +45,11 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
 import type { CheckerTest, CheckerTestError } from '~/types/checker/CheckerTest';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { applyTestResult } from '~/utils/applyTestResult';
 
 const { invoke, listen } = useTauri();
-const { throwSuccess, throwError } = useCustomToast();
+const { throwError } = useCustomToast();
 
 const testsLoading = ref(false);
 const testsRunning = ref(false);
@@ -60,6 +60,7 @@ const data = ref<CheckerTest[]>([]);
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 const selectedTest = ref<CheckerTest | null>(null);
+const copyFromTest = ref<CheckerTest | null>(null);
 
 async function onDelete(id: number) {
   try {
@@ -75,13 +76,9 @@ function onEdit(test: CheckerTest) {
   editModalOpen.value = true;
 }
 
-async function onCopy(content: string) {
-  try {
-    await writeText(content);
-    throwSuccess("Input copied to clipboard!");
-  } catch (e) {
-    console.error(e);
-  }
+function onCopy(test: CheckerTest) {
+  copyFromTest.value = test;
+  createModalOpen.value = true;
 }
 
 async function onRunAll() {

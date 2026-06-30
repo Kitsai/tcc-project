@@ -6,7 +6,7 @@
           <UFormField label="Test Number" name="id">
             <UInput type="number" v-model="state.id" />
           </UFormField>
-          <UTooltip text='Use "===" to separate inputs, one verdict per line'>
+          <UTooltip v-if="!copyFrom" text='Use "===" to separate inputs, one verdict per line'>
             <UFormField label="Multiple Tests?" name="mult">
               <UCheckbox v-model="state.mult" />
             </UFormField>
@@ -32,12 +32,16 @@
 </template>
 
 <script setup lang="ts">
-import type { CheckerTestCreateDto } from '~/types/checker/CheckerTest';
+import type { CheckerTest, CheckerTestCreateDto } from '~/types/checker/CheckerTest';
 
 const { invoke } = useTauri();
 const { throwError } = useCustomToast();
 
 const open = defineModel<boolean>('open', { required: true });
+
+const props = defineProps<{
+  copyFrom?: CheckerTest | null
+}>();
 
 const emit = defineEmits<{
   success: [],
@@ -55,6 +59,13 @@ const state = reactive<CheckerTestCreateDto>({
 watch(open, async (val) => {
   if (val) {
     state.id = await invoke<number>("get_next_checker_test_id");
+    if (props.copyFrom) {
+      state.input = props.copyFrom.input;
+      state.output = props.copyFrom.output;
+      state.answer = props.copyFrom.answer;
+      state.verdict = props.copyFrom.expected;
+      state.mult = false;
+    }
   } else {
     Object.assign(state, { mult: false, input: "", output: "", answer: "", verdict: "OK" });
   }
