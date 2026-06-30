@@ -1,8 +1,8 @@
 <template>
   <div class="flex flex-col">
     <div class="flex justify-end py-2 gap-2">
-      <ButtonTextField label="New File" @submit="onNewFile" />
-      <ProblemSolutionAddFilesButton @files-added="updateData" />
+      <ButtonTextField class="py-1" label="New File" @submit="onNewFile" />
+      <ProblemSolutionAddFilesButton class="py-1" @files-added="updateData" />
     </div>
     <UTable :columns="columns" :data="data">
       <template #tag-cell="{ row }">

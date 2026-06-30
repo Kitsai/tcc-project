@@ -1,5 +1,7 @@
 <template>
-  <UButton label="Add Files" type="button" variant="subtle" @click="onAddClicked" />
+  <div class="flex justify-end items-center min-h-10">
+    <UButton label="Add Files" type="button" variant="subtle" @click="onAddClicked" />
+  </div>
 </template>
 
 <script setup lang="ts">
