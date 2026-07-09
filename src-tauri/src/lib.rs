@@ -1,3 +1,4 @@
+use crate::compile_service::CompileService;
 use crate::lsp::{ClangdServer, LspBridge, LspRegistryBuilder, PyLspServer};
 use crate::problem::{get_include_paths, ProblemManager};
 use crate::runner::{Runner, SimpleRunner};
@@ -5,6 +6,7 @@ use crate::runner::{Runner, SimpleRunner};
 use std::sync::Arc;
 
 pub mod commands;
+mod compile_service;
 mod constants;
 pub mod error;
 pub mod lsp;
@@ -55,6 +57,7 @@ pub fn run() {
     let lsp_bridge = LspBridge::new(lsp_registry.clone());
     let problem_manager = ProblemManager::new();
     let runner: Arc<dyn Runner> = Arc::new(SimpleRunner::default());
+    let compile_service = CompileService::new(runner.clone());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -79,6 +82,7 @@ pub fn run() {
         .manage(lsp_bridge)
         .manage(problem_manager)
         .manage(runner)
+        .manage(compile_service)
         .invoke_handler(tauri::generate_handler![
             commands::problems::create_problem,
             commands::problems::load_problem,
@@ -110,10 +114,14 @@ pub fn run() {
             commands::files::create_file_on_dir,
             commands::files::delete_file_on_dir,
             commands::files::get_files,
+            commands::files::get_default_checker_files,
+            commands::files::read_default_checker_content,
+            commands::problems::select_default_checker,
             commands::settings::get_app_paths,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::compile::check_languages,
+            commands::dev::clean_binaries,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

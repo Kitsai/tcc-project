@@ -3,7 +3,7 @@ use std::fs::{self, File};
 use tauri::State;
 
 use crate::{
-    problem::{ProblemDir, ProblemManager},
+    problem::{get_default_checkers_path, ProblemDir, ProblemManager},
     util::ResultExt,
 };
 
@@ -103,6 +103,34 @@ pub fn delete_file_on_dir(
         }
     };
     fs::remove_file(path).err_to_string()
+}
+
+#[tauri::command]
+pub fn get_default_checker_files() -> Vec<String> {
+    let Some(path) = get_default_checkers_path() else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            name.contains('.').then_some(name)
+        })
+        .filter(|n| matches!(n.rsplit_once('.').map(|(_, ext)| ext), Some("cpp" | "py")))
+        .collect();
+    names.sort();
+    names
+}
+
+#[tauri::command]
+pub fn read_default_checker_content(name: String) -> Result<String, String> {
+    let path = get_default_checkers_path()
+        .ok_or_else(|| "Default checkers directory not found".to_string())?
+        .join(&name);
+    std::fs::read_to_string(path).err_to_string()
 }
 
 #[tauri::command]

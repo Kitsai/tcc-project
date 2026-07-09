@@ -3,10 +3,9 @@ use std::fs;
 use tauri::{AppHandle, State};
 
 use crate::{
+    compile_service::CompileService,
     constants::{CHECKER_TESTS_PATH, LANGUAGE_INVALID_ERR},
-    problem::{
-        CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, ProblemManager, ProgrammingLanguage,
-    },
+    problem::{CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, ProblemManager, ProgrammingLanguage},
     runner::Runner,
     util::{next_available_id, Persistant, ResultExt},
 };
@@ -74,9 +73,11 @@ pub fn delete_checker_test(id: u16, state: State<ProblemManager>) -> Result<(), 
 pub async fn run_checker_tests(
     runner: State<'_, std::sync::Arc<dyn Runner>>,
     problem_manager: State<'_, ProblemManager>,
+    compile_service: State<'_, CompileService>,
     app: AppHandle,
 ) -> Result<(), String> {
     let problem_path = problem_manager.get_current_path()?;
+
     let checker_path = problem_manager
         .get_current_checker_path()?
         .ok_or_else(|| "No checker configured for this problem".to_string())?;
@@ -89,9 +90,9 @@ pub async fn run_checker_tests(
 
     let language = ProgrammingLanguage::get_from_path(&checker_path)
         .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-    language
-        .compile(&checker_path, &problem_path, runner.inner().as_ref())
-        .await?;
+
+    // Always recompile so an edited source is never stale.
+    compile_service.compile(&language, &checker_path, &problem_path).await?;
 
     CheckerTest::run_all(&problem_path, checker_path, app, runner.inner().clone()).await
 }

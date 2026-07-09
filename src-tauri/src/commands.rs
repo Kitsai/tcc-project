@@ -1,5 +1,6 @@
 pub mod checker;
 pub mod compile;
+pub mod dev;
 pub mod files;
 pub mod lsp;
 pub mod problems;

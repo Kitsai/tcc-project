@@ -2,16 +2,18 @@ use std::{
     fs,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Arc,
 };
 
 use log::debug;
 use tauri::{webview::cookie::time::UtcDateTime, State};
 
 use crate::{
+    compile_service::CompileService,
     constants::{LANGUAGE_INVALID_ERR, NO_PRBLM_ERR},
-    problem::{Problem, ProblemFileType, ProblemManager, ProblemStatement, ProgrammingLanguage},
-    runner::Runner,
+    problem::{
+        get_default_checkers_path, Problem, ProblemFileType, ProblemManager, ProblemStatement,
+        ProgrammingLanguage,
+    },
     util::{Persistant, ResultExt},
 };
 
@@ -106,7 +108,7 @@ pub async fn select_problem_file(
     file_type: ProblemFileType,
     file: String,
     state: State<'_, ProblemManager>,
-    runner: State<'_, Arc<dyn Runner>>,
+    compile_service: State<'_, CompileService>,
 ) -> Result<(), String> {
     if !matches!(
         file_type,
@@ -127,9 +129,7 @@ pub async fn select_problem_file(
     // validator/checker, so a broken file can never be set as active.
     let language =
         ProgrammingLanguage::get_from_path(&relative).ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-    language
-        .compile(&relative, &problem_path, runner.inner().as_ref())
-        .await?;
+    compile_service.compile(&language, &relative, &problem_path).await?;
 
     let mut current = state.current.write().err_to_string()?;
 
@@ -140,6 +140,35 @@ pub async fn select_problem_file(
             _ => unreachable!("file_type was validated above"),
         }
 
+        problem.save_to_disk()
+    } else {
+        Err(NO_PRBLM_ERR.to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn select_default_checker(
+    name: String,
+    state: State<'_, ProblemManager>,
+    compile_service: State<'_, CompileService>,
+) -> Result<(), String> {
+    let checkers_path = get_default_checkers_path()
+        .ok_or_else(|| "Default checkers directory not found".to_string())?;
+    let checker_path = checkers_path.join(&name);
+
+    if !checker_path.exists() {
+        return Err(format!("Default checker '{}' not found", name));
+    }
+
+    let problem_path = state.get_current_path()?;
+
+    let language = ProgrammingLanguage::get_from_path(&checker_path)
+        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+    compile_service.compile(&language, &checker_path, &problem_path).await?;
+
+    let mut current = state.current.write().err_to_string()?;
+    if let Some(problem) = current.as_mut() {
+        problem.definition.checker = Some(format!("@default:{}", name));
         problem.save_to_disk()
     } else {
         Err(NO_PRBLM_ERR.to_string())

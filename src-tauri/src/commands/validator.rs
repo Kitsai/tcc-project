@@ -3,8 +3,12 @@ use std::fs;
 use tauri::{AppHandle, State};
 
 use crate::{
+    compile_service::CompileService,
     constants::{LANGUAGE_INVALID_ERR, VALIDATOR_TESTS_PATH},
-    problem::{ProblemManager, ProgrammingLanguage, ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto},
+    problem::{
+        ProblemManager, ProgrammingLanguage, ValidatorTest, ValidatorTestCreateDto,
+        ValidatorTestEditDto,
+    },
     runner::Runner,
     util::{next_available_id, Persistant, ResultExt},
 };
@@ -72,9 +76,11 @@ pub fn delete_validator_test(id: u16, state: State<ProblemManager>) -> Result<()
 pub async fn run_validator_tests(
     runner: State<'_, std::sync::Arc<dyn Runner>>,
     problem_manager: State<'_, ProblemManager>,
+    compile_service: State<'_, CompileService>,
     app: AppHandle,
 ) -> Result<(), String> {
     let problem_path = problem_manager.get_current_path()?;
+
     let validator_path = problem_manager
         .get_current_validator_path()?
         .ok_or_else(|| "No validator configured for this problem".to_string())?;
@@ -87,7 +93,7 @@ pub async fn run_validator_tests(
 
     let language = ProgrammingLanguage::get_from_path(&validator_path)
         .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-    language.compile(&validator_path, &problem_path, runner.inner().as_ref()).await?;
+    compile_service.compile(&language, &validator_path, &problem_path).await?;
 
     ValidatorTest::run_all(&problem_path, validator_path, app, runner.inner().clone()).await
 }

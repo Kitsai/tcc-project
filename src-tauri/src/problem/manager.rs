@@ -5,7 +5,7 @@ use std::{
 
 use crate::{constants::NO_PRBLM_ERR, util::ResultExt};
 
-use super::{Problem, ProblemFileType, SolutionDescription, SolutionTag};
+use super::{files::get_default_checkers_path, Problem, ProblemFileType, SolutionDescription, SolutionTag};
 
 pub struct ProblemManager {
     pub current: RwLock<Option<Problem>>,
@@ -62,16 +62,22 @@ impl ProblemManager {
         }
     }
 
-    /// Returns the checker's source path, relative to the problem's root directory.
+    /// Returns the checker's source path. For default checkers (stored with the
+    /// `@default:` prefix) this is an absolute path into the bundled resources
+    /// directory; for user files it is a relative path under the problem's `files/`.
     pub fn get_current_checker_path(&self) -> Result<Option<PathBuf>, String> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
-            Ok(problem
-                .definition
-                .checker
-                .as_ref()
-                .map(|c| Path::new(ProblemFileType::Checker.directory()).join(c)))
+            Ok(problem.definition.checker.as_ref().map(|c| {
+                if let Some(name) = c.strip_prefix("@default:") {
+                    get_default_checkers_path()
+                        .map(|p| p.join(name))
+                        .unwrap_or_else(|| PathBuf::from(name))
+                } else {
+                    Path::new(ProblemFileType::Checker.directory()).join(c)
+                }
+            }))
         } else {
             Err(NO_PRBLM_ERR.to_string())
         }

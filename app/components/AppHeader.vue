@@ -12,6 +12,18 @@
             </div>
         </template>
         <template #right>
+            <UTooltip v-if="isDev" text="Clean compiled binaries (dev only)">
+                <UButton
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-lucide-bug"
+                    :loading="cleaningBinaries"
+                    :disabled="!isProblemOpened"
+                    @click="onCleanBinaries"
+                >
+                    Debug
+                </UButton>
+            </UTooltip>
             <UColorModeButton />
             <UTooltip text="Abrir configurações" :kbds="['meta', 'Escape']">
                 <UButton
@@ -32,4 +44,23 @@ const { isProblemOpened, currentName } = storeToRefs(problemStore);
 const problemName = computed(() =>
     isProblemOpened.value ? " - " + currentName.value : "",
 );
+
+const isDev = import.meta.dev;
+
+const { invoke } = useTauri();
+const { throwSuccess, throwError } = useCustomToast();
+
+const cleaningBinaries = ref(false);
+
+async function onCleanBinaries() {
+    cleaningBinaries.value = true;
+    try {
+        await invoke("clean_binaries");
+        throwSuccess("Compiled binaries cleaned.");
+    } catch (e) {
+        throwError("Failed to clean binaries: " + e);
+    } finally {
+        cleaningBinaries.value = false;
+    }
+}
 </script>

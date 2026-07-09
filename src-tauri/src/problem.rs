@@ -71,7 +71,10 @@ mod validator;
 
 pub use definition::ProblemDefinition;
 pub use dir::ProblemDir;
-pub use files::{get_include_paths, ExecutableSpec, ProblemFileType, ProgrammingLanguage};
+pub use files::{
+    get_default_checkers_path, get_include_paths, ExecutableSpec, ProblemFileType,
+    ProgrammingLanguage,
+};
 pub use manager::ProblemManager;
 pub use registration::ProblemRegistration;
 pub use solutions::{SolutionDescription, SolutionTag};

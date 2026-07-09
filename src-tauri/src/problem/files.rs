@@ -106,10 +106,7 @@ impl ProgrammingLanguage {
                 script: project_path.join(relative),
             },
             Self::Cpp => ExecutableSpec::Binary {
-                path: project_path
-                    .join(BINARY_DIR)
-                    .join(relative)
-                    .with_extension(BINARY_EXTENSION),
+                path: binary_output_path(relative, project_path),
             },
         }
     }
@@ -127,10 +124,7 @@ impl ProgrammingLanguage {
         };
 
         let source = project_path.join(relative);
-        let destination = project_path
-            .join(BINARY_DIR)
-            .join(relative)
-            .with_extension(BINARY_EXTENSION);
+        let destination = binary_output_path(relative, project_path);
 
         if let Some(parent) = destination.parent() {
             std::fs::create_dir_all(parent).err_to_string()?;
@@ -147,6 +141,36 @@ impl ProgrammingLanguage {
 
         Ok(())
     }
+}
+
+/// Computes the output binary path for a source file.
+/// When `source` is an absolute path (e.g. a bundled default checker), only
+/// the file stem is used so the binary always lands in `project_path/bin/`.
+fn binary_output_path(source: &Path, project_path: &Path) -> PathBuf {
+    if source.is_absolute() {
+        project_path
+            .join(BINARY_DIR)
+            .join(source.file_name().unwrap_or_default())
+            .with_extension(BINARY_EXTENSION)
+    } else {
+        project_path
+            .join(BINARY_DIR)
+            .join(source)
+            .with_extension(BINARY_EXTENSION)
+    }
+}
+
+/// Returns the path to the bundled default checker files (`resources/checkers/`),
+/// or `None` if the directory does not exist.
+pub fn get_default_checkers_path() -> Option<PathBuf> {
+    let current_dir = std::env::current_dir().ok()?;
+    let mut path = current_dir;
+    if path.ends_with("src-tauri") {
+        path.push("resources/checkers");
+    } else {
+        path.push("src-tauri/resources/checkers");
+    }
+    path.exists().then_some(path)
 }
 
 /// Resolves the directories that should be passed to the C++ compiler/LSP as
