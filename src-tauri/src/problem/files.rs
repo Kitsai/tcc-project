@@ -112,7 +112,8 @@ impl ProgrammingLanguage {
     }
 
     /// Compiles the file at `relative` into `BINARY_DIR`, creating the destination
-    /// directory as needed. Interpreted languages are a no-op.
+    /// directory as needed. Interpreted languages are a no-op. Skips invoking
+    /// the compiler if the existing binary is already newer than its source.
     pub async fn compile(
         &self,
         relative: &Path,
@@ -125,6 +126,10 @@ impl ProgrammingLanguage {
 
         let source = project_path.join(relative);
         let destination = binary_output_path(relative, project_path);
+
+        if !needs_recompile(&source, &destination)? {
+            return Ok(());
+        }
 
         if let Some(parent) = destination.parent() {
             std::fs::create_dir_all(parent).err_to_string()?;
@@ -141,6 +146,21 @@ impl ProgrammingLanguage {
 
         Ok(())
     }
+}
+
+/// True if `destination` is missing or older than `source`, i.e. a recompile
+/// is actually needed. Errs on the side of recompiling: any I/O failure while
+/// checking is not treated as "up to date".
+fn needs_recompile(source: &Path, destination: &Path) -> Result<bool, String> {
+    let Ok(dest_meta) = std::fs::metadata(destination) else {
+        return Ok(true);
+    };
+    let source_modified = std::fs::metadata(source)
+        .err_to_string()?
+        .modified()
+        .err_to_string()?;
+    let dest_modified = dest_meta.modified().err_to_string()?;
+    Ok(source_modified > dest_modified)
 }
 
 /// Computes the output binary path for a source file.

@@ -81,19 +81,29 @@ pub async fn run_validator_tests(
 ) -> Result<(), String> {
     let problem_path = problem_manager.get_current_path()?;
 
-    let validator_path = problem_manager
-        .get_current_validator_path()?
-        .ok_or_else(|| "No validator configured for this problem".to_string())?;
+    // Held while reading the current validator so a concurrent select_* call
+    // can never leave us reading a stale/half-updated selection (see
+    // CompileService doc comment). Released before running tests so a
+    // pending select isn't blocked for the whole test run.
+    let validator_path = {
+        let _guard = compile_service.lock().await;
 
-    log::debug!(
-        "[run_validator_tests] problem_path={:?} validator_path={:?}",
-        problem_path,
+        let validator_path = problem_manager
+            .get_current_validator_path()?
+            .ok_or_else(|| "No validator configured for this problem".to_string())?;
+
+        log::debug!(
+            "[run_validator_tests] problem_path={:?} validator_path={:?}",
+            problem_path,
+            validator_path
+        );
+
+        let language = ProgrammingLanguage::get_from_path(&validator_path)
+            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+        compile_service.compile(&language, &validator_path, &problem_path).await?;
+
         validator_path
-    );
-
-    let language = ProgrammingLanguage::get_from_path(&validator_path)
-        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-    compile_service.compile(&language, &validator_path, &problem_path).await?;
+    };
 
     ValidatorTest::run_all(&problem_path, validator_path, app, runner.inner().clone()).await
 }

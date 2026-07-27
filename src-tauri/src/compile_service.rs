@@ -1,21 +1,33 @@
 use std::{path::Path, sync::Arc};
 
+use tokio::sync::{Mutex, MutexGuard};
+
 use crate::{problem::ProgrammingLanguage, runner::Runner};
 
 /// Thin facade bundling the shared `Runner` with the compile step, so command
 /// handlers don't each need their own `Arc<dyn Runner>` plumbing.
 ///
-/// Known limitation: compiling the same source from two call sites at once
-/// (e.g. selecting a checker and immediately running tests against it) is not
-/// synchronized here, so concurrent compiles can race at the compiler's
-/// shared output file. Left as a known issue for now.
+/// `compile()` does not lock by itself — callers must hold a `lock()` guard
+/// across their whole read-current-selection -> compile (-> persist)
+/// sequence. This keeps a selection change and a test run from interleaving:
+/// whichever acquires the lock first fully finishes (including persisting
+/// the new checker/validator, for a selection) before the other proceeds, so
+/// a queued run never reads a stale or half-updated selection.
 pub struct CompileService {
     runner: Arc<dyn Runner>,
+    lock: Mutex<()>,
 }
 
 impl CompileService {
     pub fn new(runner: Arc<dyn Runner>) -> Self {
-        Self { runner }
+        Self {
+            runner,
+            lock: Mutex::new(()),
+        }
+    }
+
+    pub async fn lock(&self) -> MutexGuard<'_, ()> {
+        self.lock.lock().await
     }
 
     pub async fn compile(

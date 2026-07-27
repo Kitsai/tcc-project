@@ -129,6 +129,10 @@ pub async fn select_problem_file(
     // validator/checker, so a broken file can never be set as active.
     let language =
         ProgrammingLanguage::get_from_path(&relative).ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+
+    // Held through the persist below so a concurrent run_*_tests call can
+    // never read this selection mid-update (see CompileService doc comment).
+    let _guard = compile_service.lock().await;
     compile_service.compile(&language, &relative, &problem_path).await?;
 
     let mut current = state.current.write().err_to_string()?;
@@ -164,6 +168,10 @@ pub async fn select_default_checker(
 
     let language = ProgrammingLanguage::get_from_path(&checker_path)
         .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+
+    // Held through the persist below so a concurrent run_checker_tests call
+    // can never read this selection mid-update (see CompileService doc comment).
+    let _guard = compile_service.lock().await;
     compile_service.compile(&language, &checker_path, &problem_path).await?;
 
     let mut current = state.current.write().err_to_string()?;

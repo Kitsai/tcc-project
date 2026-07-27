@@ -78,21 +78,32 @@ pub async fn run_checker_tests(
 ) -> Result<(), String> {
     let problem_path = problem_manager.get_current_path()?;
 
-    let checker_path = problem_manager
-        .get_current_checker_path()?
-        .ok_or_else(|| "No checker configured for this problem".to_string())?;
+    // Held while reading the current checker so a concurrent select_* call
+    // can never leave us reading a stale/half-updated selection (see
+    // CompileService doc comment). Released before running tests so a
+    // pending select isn't blocked for the whole test run.
+    let checker_path = {
+        let _guard = compile_service.lock().await;
 
-    log::debug!(
-        "[run_checker_tests] problem_path={:?} checker_path={:?}",
-        problem_path,
+        let checker_path = problem_manager
+            .get_current_checker_path()?
+            .ok_or_else(|| "No checker configured for this problem".to_string())?;
+
+        log::debug!(
+            "[run_checker_tests] problem_path={:?} checker_path={:?}",
+            problem_path,
+            checker_path
+        );
+
+        let language = ProgrammingLanguage::get_from_path(&checker_path)
+            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+
+        // Always attempted; compile() itself skips the actual compiler
+        // invocation when the binary is already up to date.
+        compile_service.compile(&language, &checker_path, &problem_path).await?;
+
         checker_path
-    );
-
-    let language = ProgrammingLanguage::get_from_path(&checker_path)
-        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-
-    // Always recompile so an edited source is never stale.
-    compile_service.compile(&language, &checker_path, &problem_path).await?;
+    };
 
     CheckerTest::run_all(&problem_path, checker_path, app, runner.inner().clone()).await
 }
