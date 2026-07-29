@@ -6,4 +6,5 @@ pub mod lsp;
 pub mod problems;
 pub mod settings;
 pub mod solution;
+pub mod tests;
 pub mod validator;

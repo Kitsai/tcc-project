@@ -10,9 +10,6 @@
 </template>
 
 <script setup lang="ts">
-const route = useRoute();
-const problems = useProblems();
-
 const navItems = [
   {
     label: 'Statement', to: { path: '/problem' }, exact: true
@@ -22,6 +19,9 @@ const navItems = [
   },
   {
     label: 'Validator', to: { path: '/problem/validator' }
+  },
+  {
+    label: 'Tests', to: { path: '/problem/tests' }
   },
   {
     label: 'Solution Files', to: { path: '/problem/solution' }
