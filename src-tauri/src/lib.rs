@@ -107,6 +107,7 @@ pub fn run() {
             commands::solution::add_solution_files,
             commands::solution::change_tag,
             commands::solution::verify_solutions,
+            commands::solution::output_from_main,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,

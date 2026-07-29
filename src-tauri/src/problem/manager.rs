@@ -62,6 +62,22 @@ impl ProblemManager {
         }
     }
 
+    /// Returns the main solution's source path, relative to the problem's
+    /// root directory.
+    pub fn get_main_solution_path(&self) -> Result<Option<PathBuf>, String> {
+        let curr = self.current.read().err_to_string()?;
+
+        if let Some(problem) = &*curr {
+            Ok(problem
+                .definition
+                .main_solution
+                .as_ref()
+                .map(|m| Path::new(ProblemFileType::Solution.directory()).join(m)))
+        } else {
+            Err(NO_PRBLM_ERR.to_string())
+        }
+    }
+
     /// Returns the checker's source path. For default checkers (stored with the
     /// `@default:` prefix) this is an absolute path into the bundled resources
     /// directory; for user files it is a relative path under the problem's `files/`.

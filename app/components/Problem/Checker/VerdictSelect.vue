@@ -1,5 +1,9 @@
 <template>
-  <USelect v-model="model" :items="['OK', 'WRONG_ANSWER', 'PRESENTATION_ERROR', 'CRASHED']" />
+  <USelect
+    v-model="model"
+    :items="['OK', 'WRONG_ANSWER', 'PRESENTATION_ERROR', 'CRASHED']"
+    class="w-56"
+  />
 </template>
 
 <script setup lang="ts">

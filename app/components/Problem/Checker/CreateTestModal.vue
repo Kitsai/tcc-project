@@ -18,7 +18,10 @@
             <UTextarea class="w-full" v-model="state.output" />
           </UFormField>
           <UFormField label="Answer(s)" name="answer" class="w-full">
-            <UTextarea class="w-full" v-model="state.answer" />
+            <div class="flex flex-col gap-2">
+              <UTextarea class="w-full" v-model="state.answer" />
+              <UButton label="Generate with main solution" variant="ghost" class="text-xs" @click="onGenerate" />
+            </div>
           </UFormField>
           <UFormField label="Verdict(s)" name="verdict" class="w-full">
             <UTextarea v-if="state.mult" class="w-full" v-model="state.verdict" />
@@ -82,6 +85,15 @@ async function onSubmit() {
     close();
   } catch (e) {
     throwError("Failed to create: " + e);
+    console.error(e);
+  }
+}
+
+async function onGenerate() {
+  try {
+    state.answer = await invoke<string>("output_from_main", { input: state.input })
+  } catch (e) {
+    throwError("Failed to generate output: " + e);
     console.error(e);
   }
 }
