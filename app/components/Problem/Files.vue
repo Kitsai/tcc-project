@@ -1,24 +1,19 @@
 <template>
   <div>
     <template v-if="props.type === 'checker'">
-      <ProblemCheckerDefaultFilesSection
-        :active-value="activeValue"
-        @change="onActiveValueChange"
-      />
+      <ProblemCheckerDefaultFilesSection :active-value="activeValue" @change="onActiveValueChange" />
       <UDivider />
     </template>
 
-    <ProblemProjectFilesSection
-      :type="props.type"
-      :active-value="activeValue"
-      @change="onActiveValueChange"
-    />
+    <ProblemProjectFilesSection :type="props.type" :active-value="activeValue" @change="onActiveValueChange" />
   </div>
 </template>
 
 <script setup lang="ts">
+import type { ProblemFileTypes } from '~/types/problem/files';
+
 const props = defineProps<{
-  type: 'validator' | 'checker'
+  type: ProblemFileTypes
 }>()
 
 const problems = useProblems()

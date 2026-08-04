@@ -10,20 +10,13 @@
       </div>
     </div>
 
-    <UTable
-      v-model:row-selection="rowSelection"
-      :loading="loading"
-      :data="files"
-      :columns="columns"
+    <UTable v-model:row-selection="rowSelection" :loading="loading" :data="files" :columns="columns"
       :table-options="{ enableMultiRowSelection: false }"
-      :ui="{ thead: 'hidden', tr: 'border-l-4 border-transparent transition-all cursor-pointer' }"
-      :meta="{
+      :ui="{ thead: 'hidden', tr: `border-l-4 border-transparent transition-all ${selectable ? 'cursor-pointer' : ''}` }" :meta="{
         class: {
           tr: (row: any) => rowSelection[row.id] ? '!bg-primary-50 dark:!bg-primary-950/50 !border-l-primary-500' : ''
         }
-      }"
-      @select="onSelect"
-    >
+      }" @select="onSelect">
       <template #fileName-cell="{ row }">
         <div class="flex items-center gap-2">
           <UIcon v-if="rowSelection[row.id]" name="i-lucide-check-circle-2" class="size-4 text-primary-500" />
@@ -49,9 +42,10 @@
 
 <script setup lang="ts">
 import type { TableColumn, TableRow } from '@nuxt/ui'
+import type { ProblemFileTypes } from '~/types/problem/files';
 
 const props = defineProps<{
-  type: 'validator' | 'checker'
+  type: ProblemFileTypes
   activeValue?: string | null
 }>()
 
@@ -62,6 +56,10 @@ const emit = defineEmits<{
 const files = ref<string[]>([])
 const loading = ref(false)
 const rowSelection = ref<Record<string, boolean>>({})
+
+// Generators aren't pinned to a single "active" file like the checker/validator
+// are - any of them can be invoked per-test - so there's nothing to select.
+const selectable = computed(() => props.type !== 'generator')
 
 const columns: TableColumn<string>[] = [
   { id: 'fileName', header: 'File Name', accessorFn: (row: string) => row },
@@ -96,6 +94,8 @@ async function getFiles() {
 }
 
 async function onSelect(_: Event, row: TableRow<string>) {
+  if (!selectable.value) return
+
   const previous = props.activeValue
   emit('change', row.original)
   try {

@@ -1,8 +1,10 @@
 <template>
   <UTabs class="px-4" :items="tabs">
     <template #files>
+      <ProblemFiles type="generator" />
     </template>
     <template #tests>
+      <LazyProblemTests />
     </template>
   </UTabs>
 </template>
