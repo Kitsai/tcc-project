@@ -18,15 +18,15 @@ const props = defineProps<{
 
 const problems = useProblems()
 
-const activeValue = computed(() =>
-  props.type === 'checker'
-    ? problems.currentProblem?.definition.checker
-    : problems.currentProblem?.definition.validator
-)
+const activeValue = computed(() => {
+  if (props.type === 'checker') return problems.currentProblem?.definition.checker
+  if (props.type === 'validator') return problems.currentProblem?.definition.validator
+  return undefined
+})
 
 function onActiveValueChange(value: string | undefined) {
   if (!problems.currentProblem) return
   if (props.type === 'checker') problems.currentProblem.definition.checker = value
-  else problems.currentProblem.definition.validator = value
+  else if (props.type === 'validator') problems.currentProblem.definition.validator = value
 }
 </script>

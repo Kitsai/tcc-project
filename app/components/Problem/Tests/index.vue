@@ -1,6 +1,35 @@
 <template>
   <div>
-    <UTable :columns="columns">
+    <UTable :columns="columns" :data="data">
+      <template #content-cell="{ row }">
+        <span v-if="row.original.testType == 'Script'">{{ row.original.content }}</span>
+        <EscapedText v-else>{{ row.original.content }}</EscapedText>
+      </template>
+      <template #example-cell="{ row }">
+        <div class="flex justify-center">
+          <UCheckbox :model-value="row.original.example" disabled :color="row.original.example ? 'success' : 'neutral'"
+            :ui="{
+              root: 'opacity-100',
+              base: `ring-1 bg-transparent cursor-default ${row.original.example ? 'ring-success' : 'ring-muted'}`,
+              indicator: 'bg-transparent',
+              icon: row.original.example ? 'text-success' : 'text-muted'
+            }" />
+        </div>
+      </template>
+      <template #actions-cell="{ row }">
+        <div class="flex items-center gap-2">
+          <UTooltip text="Delete this test">
+            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="OnDelete(row.original.id)" />
+          </UTooltip>
+          <UTooltip text="Edit this test">
+            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost"
+              @click.stop="OnDelete(row.original.id)" />
+          </UTooltip>
+          <UTooltip text="Preview this test">
+            <UButton icon="i-lucide-eye" color="neutral" variant="ghost" @click.stop="OnDelete(row.original.id)" />
+          </UTooltip>
+        </div>
+      </template>
     </UTable>
   </div>
 </template>
@@ -8,6 +37,10 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
 import type { TestDefinition } from '~/types/tests/definition';
+
+async function OnDelete(id: number) {
+
+}
 
 
 const columns: TableColumn<TestDefinition>[] = [
@@ -33,5 +66,22 @@ const columns: TableColumn<TestDefinition>[] = [
     id: 'actions',
     header: ''
   }
+]
+
+const data: TestDefinition[] = [
+  {
+    id: 1,
+    content: "1\n1\n1",
+    description: "basic test for example",
+    example: true,
+    testType: 'Manual'
+  },
+  {
+    id: 2,
+    content: "generator",
+    description: "",
+    example: false,
+    testType: 'Script'
+  },
 ]
 </script>
