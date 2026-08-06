@@ -1,5 +1,9 @@
 <template>
   <div>
+      <div class="py-2 flex justify-end gap-2">
+        <UButton label="Preview Tests" variant="subtle" class="px-4" @click="" />
+        <UButton label="Add Test" variant="subtle" class="px-4" @click="OnAdd" />
+      </div>
     <UTable :columns="columns" :data="data">
       <template #content-cell="{ row }">
         <span v-if="row.original.testType == 'Script'">{{ row.original.content }}</span>
@@ -23,7 +27,7 @@
           </UTooltip>
           <UTooltip text="Edit this test">
             <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost"
-              @click.stop="OnDelete(row.original.id)" />
+              @click.stop="OnEdit(row.original)" />
           </UTooltip>
           <UTooltip text="Preview this test">
             <UButton icon="i-lucide-eye" color="neutral" variant="ghost" @click.stop="OnDelete(row.original.id)" />
@@ -31,6 +35,9 @@
         </div>
       </template>
     </UTable>
+
+    <LazyProblemTestsCreateTestModal v-model:open="createModalOpen"/>
+    <LazyProblemTestsEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="OnEditSuccess" />
   </div>
 </template>
 
@@ -38,8 +45,26 @@
 import type { TableColumn } from '@nuxt/ui';
 import type { TestDefinition } from '~/types/tests/definition';
 
+const createModalOpen = ref(false);
+const editModalOpen = ref(false);
+const selectedTest = ref<TestDefinition | null>(null);
+
 async function OnDelete(id: number) {
 
+}
+
+function OnEdit(test: TestDefinition) {
+  selectedTest.value = test;
+  editModalOpen.value = true;
+}
+
+function OnEditSuccess(test: TestDefinition) {
+  const index = data.value.findIndex(t => t.id === test.id);
+  if (index !== -1) data.value[index] = test;
+}
+
+function OnAdd() {
+  createModalOpen.value = true
 }
 
 
@@ -68,7 +93,7 @@ const columns: TableColumn<TestDefinition>[] = [
   }
 ]
 
-const data: TestDefinition[] = [
+const data = ref<TestDefinition[]>([
   {
     id: 1,
     content: "1\n1\n1",
@@ -83,5 +108,5 @@ const data: TestDefinition[] = [
     example: false,
     testType: 'Script'
   },
-]
+])
 </script>

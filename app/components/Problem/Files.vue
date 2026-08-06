@@ -2,7 +2,7 @@
   <div>
     <template v-if="props.type === 'checker'">
       <ProblemCheckerDefaultFilesSection :active-value="activeValue" @change="onActiveValueChange" />
-      <UDivider />
+      <USeparator />
     </template>
 
     <ProblemProjectFilesSection :type="props.type" :active-value="activeValue" @change="onActiveValueChange" />
