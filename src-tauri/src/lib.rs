@@ -9,6 +9,7 @@ pub mod commands;
 mod compile_service;
 mod constants;
 pub mod error;
+mod fs;
 pub mod lsp;
 pub mod polygon;
 pub mod problem;
@@ -108,6 +109,10 @@ pub fn run() {
             commands::solution::change_tag,
             commands::solution::verify_solutions,
             commands::solution::output_from_main,
+            commands::tests::delete_test,
+            commands::tests::get_tests,
+            commands::tests::create_test,
+            commands::tests::edit_test,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,

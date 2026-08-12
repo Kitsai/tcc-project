@@ -58,6 +58,7 @@ fn create_file_dirs(base_path: &Path) -> Result<(), String> {
     fs::create_dir(base_path.join("tests")).err_to_string()?;
     fs::create_dir(base_path.join("tests/validator")).err_to_string()?;
     fs::create_dir(base_path.join("tests/checker")).err_to_string()?;
+    fs::create_dir(base_path.join("tests/main")).err_to_string()?;
     fs::create_dir(base_path.join("statement")).err_to_string()?;
 
     Ok(())
@@ -127,13 +128,15 @@ pub async fn select_problem_file(
 
     // Only a file that compiles successfully may be selected as the problem's
     // validator/checker, so a broken file can never be set as active.
-    let language =
-        ProgrammingLanguage::get_from_path(&relative).ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+    let language = ProgrammingLanguage::get_from_path(&relative)
+        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
 
     // Held through the persist below so a concurrent run_*_tests call can
     // never read this selection mid-update (see CompileService doc comment).
     let _guard = compile_service.lock().await;
-    compile_service.compile(&language, &relative, &problem_path).await?;
+    compile_service
+        .compile(&language, &relative, &problem_path)
+        .await?;
 
     let mut current = state.current.write().err_to_string()?;
 
@@ -172,7 +175,9 @@ pub async fn select_default_checker(
     // Held through the persist below so a concurrent run_checker_tests call
     // can never read this selection mid-update (see CompileService doc comment).
     let _guard = compile_service.lock().await;
-    compile_service.compile(&language, &checker_path, &problem_path).await?;
+    compile_service
+        .compile(&language, &checker_path, &problem_path)
+        .await?;
 
     let mut current = state.current.write().err_to_string()?;
     if let Some(problem) = current.as_mut() {

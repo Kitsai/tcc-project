@@ -28,7 +28,10 @@
 </template>
 
 <script setup lang="ts">
-import type { TestDefinition } from '~/types/tests/definition';
+import type { TestDefinition, TestDefinitionEditDto } from '~/types/tests/definition';
+
+const { invoke } = useTauri();
+const { throwError } = useCustomToast();
 
 const open = defineModel<boolean>('open', { required: true });
 
@@ -59,13 +62,21 @@ watch(open, (val) => {
 async function OnSubmit() {
   if (!props.test) return;
 
-  emit('success', {
+  const dto: TestDefinitionEditDto = {
     id: props.test.id,
     testType: state.testType,
     content: state.content,
     example: state.example,
     description: state.description
-  });
-  open.value = false;
+  };
+
+  try {
+    const updated = await invoke<TestDefinition>("edit_test", { dto: { ...dto } });
+    emit('success', updated);
+    open.value = false;
+  } catch (e) {
+    console.error(e);
+    throwError("Failed to edit test: " + e);
+  }
 }
 </script>

@@ -83,6 +83,7 @@ pub use manager::ProblemManager;
 pub use registration::ProblemRegistration;
 pub use solutions::{SolutionDescription, SolutionTag};
 pub use statement::ProblemStatement;
+pub use tests::{TestDefinition, TestDefinitionCreateDto, TestDefinitionEditDto, TestType};
 pub use validator::{
     ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,
 };

@@ -3,9 +3,14 @@ use std::{
     sync::RwLock,
 };
 
-use crate::{constants::NO_PRBLM_ERR, util::ResultExt};
+use crate::{
+    constants::NO_PRBLM_ERR,
+    util::{ResultExt, StringResult},
+};
 
-use super::{files::get_default_checkers_path, Problem, ProblemFileType, SolutionDescription, SolutionTag};
+use super::{
+    files::get_default_checkers_path, Problem, ProblemFileType, SolutionDescription, SolutionTag,
+};
 
 pub struct ProblemManager {
     pub current: RwLock<Option<Problem>>,
@@ -94,6 +99,20 @@ impl ProblemManager {
                     Path::new(ProblemFileType::Checker.directory()).join(c)
                 }
             }))
+        } else {
+            Err(NO_PRBLM_ERR.to_string())
+        }
+    }
+
+    pub fn get_current_tests_path(&self) -> StringResult<Option<PathBuf>> {
+        let curr = self.current.read().err_to_string()?;
+
+        if let Some(problem) = &*curr {
+            Ok(problem
+                .definition
+                .main_solution
+                .as_ref()
+                .map(|m| Path::new(ProblemFileType::Generator.directory()).join(m)))
         } else {
             Err(NO_PRBLM_ERR.to_string())
         }

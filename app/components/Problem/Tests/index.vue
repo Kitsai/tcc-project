@@ -1,9 +1,9 @@
 <template>
   <div>
-      <div class="py-2 flex justify-end gap-2">
-        <UButton label="Preview Tests" variant="subtle" class="px-4" @click="" />
-        <UButton label="Add Test" variant="subtle" class="px-4" @click="OnAdd" />
-      </div>
+    <div class="py-2 flex justify-end gap-2">
+      <UButton label="Preview Tests" variant="subtle" class="px-4" @click="" />
+      <UButton label="Add Test" variant="subtle" class="px-4" @click="OnAdd" />
+    </div>
     <UTable :columns="columns" :data="data">
       <template #content-cell="{ row }">
         <span v-if="row.original.testType == 'Script'">{{ row.original.content }}</span>
@@ -26,17 +26,16 @@
             <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="OnDelete(row.original.id)" />
           </UTooltip>
           <UTooltip text="Edit this test">
-            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost"
-              @click.stop="OnEdit(row.original)" />
+            <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="OnEdit(row.original)" />
           </UTooltip>
           <UTooltip text="Preview this test">
-            <UButton icon="i-lucide-eye" color="neutral" variant="ghost" @click.stop="OnDelete(row.original.id)" />
+            <UButton icon="i-lucide-eye" color="neutral" variant="ghost" @click.stop="console.log('Preview')" />
           </UTooltip>
         </div>
       </template>
     </UTable>
 
-    <LazyProblemTestsCreateTestModal v-model:open="createModalOpen"/>
+    <LazyProblemTestsCreateTestModal v-model:open="createModalOpen" @success="updateTests" />
     <LazyProblemTestsEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="OnEditSuccess" />
   </div>
 </template>
@@ -45,12 +44,23 @@
 import type { TableColumn } from '@nuxt/ui';
 import type { TestDefinition } from '~/types/tests/definition';
 
+const { invoke } = useTauri();
+const { throwError } = useCustomToast();
+
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 const selectedTest = ref<TestDefinition | null>(null);
 
-async function OnDelete(id: number) {
+const data = ref<TestDefinition[]>([]);
 
+async function OnDelete(id: number) {
+  try {
+    await invoke("delete_test", { id });
+    await updateTests();
+  } catch (e) {
+    console.error(e);
+    throwError("Failed to delete: " + e);
+  }
 }
 
 function OnEdit(test: TestDefinition) {
@@ -66,6 +76,17 @@ function OnEditSuccess(test: TestDefinition) {
 function OnAdd() {
   createModalOpen.value = true
 }
+
+async function updateTests() {
+  try {
+    const tests = await invoke<TestDefinition[]>("get_tests");
+    data.value = tests.sort((a, b) => a.id - b.id);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+onMounted(updateTests)
 
 
 const columns: TableColumn<TestDefinition>[] = [
@@ -92,21 +113,4 @@ const columns: TableColumn<TestDefinition>[] = [
     header: ''
   }
 ]
-
-const data = ref<TestDefinition[]>([
-  {
-    id: 1,
-    content: "1\n1\n1",
-    description: "basic test for example",
-    example: true,
-    testType: 'Manual'
-  },
-  {
-    id: 2,
-    content: "generator",
-    description: "",
-    example: false,
-    testType: 'Script'
-  },
-])
 </script>

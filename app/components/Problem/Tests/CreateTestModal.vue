@@ -28,12 +28,18 @@
 </template>
 
 <script setup lang="ts">
-import type { TestDefinition } from '~/types/tests/definition';
+import type { TestDefinitionCreateDto } from '~/types/tests/definition';
 
+const { invoke } = useTauri();
+const { throwError } = useCustomToast();
 
 const open = defineModel<boolean>('open', { required: true });
 
-const state = reactive<TestDefinition>({
+const emit = defineEmits<{
+  success: []
+}>();
+
+const state = reactive<TestDefinitionCreateDto>({
   id: 0,
   testType: 'Manual',
   content: '',
@@ -41,7 +47,20 @@ const state = reactive<TestDefinition>({
   description: ''
 })
 
+watch(open, (val) => {
+  if (!val) {
+    Object.assign(state, { id: 0, testType: 'Manual', content: '', example: false, description: '' });
+  }
+});
+
 async function OnSubmit() {
-  open.value = false;
+  try {
+    await invoke("create_test", { test: { ...state } });
+    emit("success");
+    open.value = false;
+  } catch (e) {
+    console.error(e);
+    throwError("Failed to create: " + e);
+  }
 }
 </script>
