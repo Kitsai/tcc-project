@@ -1,11 +1,14 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::TESTS_PATH,
+    compile_service::CompileService,
+    constants::{TESTS_PATH, LANGUAGE_INVALID_ERR},
     error::{AppError, AppResult},
     fs,
+    problem::{ProblemFileType, ProgrammingLanguage},
+    runner::Runner,
     util::{Persistant, ResultExt, SerdePersistant},
 };
 
@@ -84,6 +87,72 @@ impl TestDefinition {
         let path = problem_path.join(TESTS_PATH).join(format!("{:02}", id));
 
         fs::delete_file(&path)
+    }
+
+    /// Returns the literal test data for `Manual` tests, or compiles and runs
+    /// the referenced generator for `Script` tests. Generators may either
+    /// print the test to stdout, or (following testlib's `startTest`
+    /// convention) `freopen` stdout into a file named after the test number
+    /// inside their working directory — so the generator is run with its cwd
+    /// set to a fresh temp directory, and if stdout comes back empty, this
+    /// reads back the file named after `self.id` from that directory.
+    pub async fn preview(
+        &self,
+        problem_path: &Path,
+        runner: Arc<dyn Runner>,
+        compile_service: &CompileService,
+    ) -> AppResult<String> {
+        let TestType::Script = &self.test_type else {
+            return Ok(self.content.clone());
+        };
+
+        let mut parts = self.content.split_whitespace();
+        let generator_file = parts
+            .next()
+            .ok_or_else(|| AppError::from("Empty script line"))?;
+        let args: Vec<String> = parts.map(String::from).collect();
+
+        let generator_relative = Path::new(ProblemFileType::Generator.directory()).join(generator_file);
+        let (language, generator_relative) = match ProgrammingLanguage::get_from_path(&generator_relative) {
+            Some(language) => (language, generator_relative),
+            None => ProgrammingLanguage::resolve_bare_name(problem_path, &generator_relative)
+                .ok_or_else(|| AppError::from(LANGUAGE_INVALID_ERR))?,
+        };
+
+        {
+            let _guard = compile_service.lock().await;
+            compile_service
+                .compile(&language, &generator_relative, problem_path)
+                .await?;
+        }
+
+        let tempdir = tempfile::TempDir::new().err_to_string()?;
+
+        let mut request = language
+            .resolve(&generator_relative, problem_path)
+            .into_request();
+        request.with_args(&args);
+        request.with_cwd(tempdir.path());
+
+        let info = runner.execute(request).await.err_to_string()?;
+        if info.exit_code != 0 {
+            return Err(AppError::from(format!(
+                "Generator exited with code {}: {}",
+                info.exit_code, info.stderr
+            )));
+        }
+
+        if !info.stdout.trim().is_empty() {
+            return Ok(info.stdout);
+        }
+
+        let output_path = tempdir.path().join(self.id.to_string());
+        std::fs::read_to_string(&output_path).map_err(|_| {
+            AppError::from(format!(
+                "Generator did not produce output for test {}",
+                self.id
+            ))
+        })
     }
 }
 

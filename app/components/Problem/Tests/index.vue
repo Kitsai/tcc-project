@@ -23,13 +23,13 @@
       <template #actions-cell="{ row }">
         <div class="flex items-center gap-2">
           <UTooltip text="Delete this test">
-            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="OnDelete(row.original.id)" />
+            <UButton icon=" i-lucide-trash" color="error" variant="ghost" @click.stop="OnDelete(row.original.id)" />
           </UTooltip>
           <UTooltip text="Edit this test">
             <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="OnEdit(row.original)" />
           </UTooltip>
           <UTooltip text="Preview this test">
-            <UButton icon="i-lucide-eye" color="neutral" variant="ghost" @click.stop="console.log('Preview')" />
+            <UButton icon="i-lucide-eye" color="neutral" variant="ghost" @click.stop="OnPreview(row.original)" />
           </UTooltip>
         </div>
       </template>
@@ -37,6 +37,7 @@
 
     <LazyProblemTestsCreateTestModal v-model:open="createModalOpen" @success="updateTests" />
     <LazyProblemTestsEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="OnEditSuccess" />
+    <LazyProblemTestsPreviewTestModal v-model:open="previewModalOpen" :test="selectedPreviewTest" />
   </div>
 </template>
 
@@ -49,7 +50,9 @@ const { throwError } = useCustomToast();
 
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
+const previewModalOpen = ref(false);
 const selectedTest = ref<TestDefinition | null>(null);
+const selectedPreviewTest = ref<TestDefinition | null>(null);
 
 const data = ref<TestDefinition[]>([]);
 
@@ -75,6 +78,11 @@ function OnEditSuccess(test: TestDefinition) {
 
 function OnAdd() {
   createModalOpen.value = true
+}
+
+function OnPreview(test: TestDefinition) {
+  selectedPreviewTest.value = test;
+  previewModalOpen.value = true;
 }
 
 async function updateTests() {

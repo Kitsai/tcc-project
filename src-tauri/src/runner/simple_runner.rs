@@ -48,6 +48,10 @@ impl Runner for SimpleRunner {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
 
+        if let Some(cwd) = &request.cwd {
+            command.current_dir(cwd);
+        }
+
         let now = Instant::now();
 
         let mut child = command
@@ -116,6 +120,7 @@ mod tests {
                 timeout: None,
                 memory_limit: None,
             },
+            cwd: None,
         };
 
         let result = runner.execute(request).await.expect("Execution failed");
@@ -134,6 +139,7 @@ mod tests {
                 timeout: None,
                 memory_limit: None,
             },
+            cwd: None,
         };
 
         let result = runner.execute(request).await.expect("Execution failed");
@@ -162,6 +168,7 @@ mod tests {
                 timeout: None,
                 memory_limit: None,
             },
+            cwd: None,
         };
 
         let result = runner.execute(request).await.expect("Execution failed");
@@ -185,6 +192,7 @@ mod tests {
                 timeout: Some(100), // 100ms timeout
                 memory_limit: None,
             },
+            cwd: None,
         };
 
         let result = runner.execute(request).await;

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -23,6 +24,7 @@ pub struct ExecutionRequest {
     pub args: Vec<String>,
     pub input: String,
     pub options: ExecutionOptions,
+    pub cwd: Option<PathBuf>,
 }
 
 impl ExecutionRequest {
@@ -32,6 +34,7 @@ impl ExecutionRequest {
             args: Vec::new(),
             input: String::new(),
             options: ExecutionOptions::default(),
+            cwd: None,
         }
     }
 
@@ -54,6 +57,12 @@ impl ExecutionRequest {
 
     pub fn with_input(&mut self, input: &str) -> &mut Self {
         self.input = input.to_owned();
+
+        self
+    }
+
+    pub fn with_cwd(&mut self, path: &Path) -> &mut Self {
+        self.cwd = Some(path.to_owned());
 
         self
     }

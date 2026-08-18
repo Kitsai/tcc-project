@@ -47,8 +47,10 @@ const state = reactive<TestDefinitionCreateDto>({
   description: ''
 })
 
-watch(open, (val) => {
-  if (!val) {
+watch(open, async (val) => {
+  if (val) {
+    state.id = await invoke<number>("get_next_test_id");
+  } else {
     Object.assign(state, { id: 0, testType: 'Manual', content: '', example: false, description: '' });
   }
 });

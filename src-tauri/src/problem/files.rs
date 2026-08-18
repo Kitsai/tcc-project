@@ -61,6 +61,23 @@ impl ProgrammingLanguage {
             .and_then(|ext| Self::get_from_extension(&ext.to_string_lossy()))
     }
 
+    /// Resolves a bare, extension-less script reference (Polygon-style: a
+    /// generator invoked as `generator 1 100` rather than `generator.cpp 1
+    /// 100`) to its actual source file under `project_path`, trying known
+    /// extensions in order. Python is tried first since it needs no compile
+    /// step; this is also the general mapping to reach for anywhere else a
+    /// bare name needs to become a real source file.
+    pub fn resolve_bare_name(project_path: &Path, relative_no_ext: &Path) -> Option<(Self, PathBuf)> {
+        for ext in ["py", "cpp"] {
+            let relative = relative_no_ext.with_extension(ext);
+            if project_path.join(&relative).exists() {
+                return Self::get_from_extension(ext).map(|lang| (lang, relative));
+            }
+        }
+
+        None
+    }
+
     pub fn is_interpreted(&self) -> bool {
         match self {
             Self::Cpp => false,
