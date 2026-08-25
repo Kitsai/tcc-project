@@ -15,6 +15,9 @@ const navItems = [
     label: 'Statement', to: { path: '/problem' }, exact: true
   },
   {
+    label: 'Files', to: { path: '/problem/files' }
+  },
+  {
     label: 'Checker', to: { path: '/problem/checker' }
   },
   {

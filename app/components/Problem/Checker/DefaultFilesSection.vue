@@ -48,7 +48,7 @@ const emit = defineEmits<{
   change: [value: string | undefined]
 }>()
 
-const open = ref(true)
+const open = ref(false)
 const files = ref<string[]>([])
 const rowSelection = ref<Record<string, boolean>>({})
 

@@ -89,6 +89,7 @@ pub fn run() {
             commands::problems::load_problem,
             commands::problems::save_statement,
             commands::problems::select_problem_file,
+            commands::problems::unselect_problem_file,
             commands::checker::get_checker_tests,
             commands::checker::get_next_checker_test_id,
             commands::checker::checker_test_exists,

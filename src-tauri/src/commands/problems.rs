@@ -154,6 +154,33 @@ pub async fn select_problem_file(
 }
 
 #[tauri::command]
+pub fn unselect_problem_file(
+    file_type: ProblemFileType,
+    state: State<ProblemManager>,
+) -> Result<(), String> {
+    if !matches!(
+        file_type,
+        ProblemFileType::Validator | ProblemFileType::Checker
+    ) {
+        return Err(format!("Filetype {} is not valid", file_type));
+    }
+
+    let mut current = state.current.write().err_to_string()?;
+
+    if let Some(problem) = current.as_mut() {
+        match file_type {
+            ProblemFileType::Validator => problem.definition.validator = None,
+            ProblemFileType::Checker => problem.definition.checker = None,
+            _ => unreachable!("file_type was validated above"),
+        }
+
+        problem.save_to_disk()
+    } else {
+        Err(NO_PRBLM_ERR.to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn select_default_checker(
     name: String,
     state: State<'_, ProblemManager>,
