@@ -181,6 +181,41 @@ pub fn unselect_problem_file(
 }
 
 #[tauri::command]
+pub fn tag_generator_file(file: String, state: State<ProblemManager>) -> Result<(), String> {
+    let problem_path = state.get_current_path()?;
+    let relative = Path::new(ProblemFileType::Generator.directory()).join(&file);
+
+    if !problem_path.join(&relative).exists() {
+        return Err(format!("File does not exist: {:?}", relative));
+    }
+
+    ProgrammingLanguage::get_from_path(&relative).ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+
+    let mut current = state.current.write().err_to_string()?;
+
+    if let Some(problem) = current.as_mut() {
+        if !problem.definition.generators.contains(&file) {
+            problem.definition.generators.push(file);
+        }
+        problem.save_to_disk()
+    } else {
+        Err(NO_PRBLM_ERR.to_string())
+    }
+}
+
+#[tauri::command]
+pub fn untag_generator_file(file: String, state: State<ProblemManager>) -> Result<(), String> {
+    let mut current = state.current.write().err_to_string()?;
+
+    if let Some(problem) = current.as_mut() {
+        problem.definition.generators.retain(|f| f != &file);
+        problem.save_to_disk()
+    } else {
+        Err(NO_PRBLM_ERR.to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn select_default_checker(
     name: String,
     state: State<'_, ProblemManager>,

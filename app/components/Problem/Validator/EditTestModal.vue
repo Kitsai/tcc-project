@@ -1,7 +1,7 @@
 <template>
   <UModal v-model:open="open">
     <template #content>
-      <div class="p-10 flex flex-col gap-3">
+      <div class="p-10 overflow-y-auto max-h-[80vh] flex flex-col gap-3">
         <h1>Edit test {{ props.test?.id }}</h1>
         <UForm class="flex flex-col gap-4" @submit="onSubmit">
           <UFormField label="Input" name="input">

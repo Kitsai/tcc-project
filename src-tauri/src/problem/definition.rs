@@ -9,6 +9,8 @@ pub struct ProblemDefinition {
     pub checker: Option<String>,
     pub validator: Option<String>,
     pub main_solution: Option<String>,
+    #[serde(default)]
+    pub generators: Vec<String>,
 }
 
 impl ProblemDefinition {
@@ -18,6 +20,7 @@ impl ProblemDefinition {
             checker: None,
             validator: None,
             main_solution: None,
+            generators: Vec::new(),
         }
     }
 }

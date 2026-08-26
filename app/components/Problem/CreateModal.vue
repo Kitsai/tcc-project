@@ -3,25 +3,27 @@
     <UButton class="w-fit text-lg" label="Criar Problema" />
 
     <template #content>
-      <UHeader title="Crie um novo problema" to="" :toggle="false" />
-      <UForm @submit="onSubmit" class="flex flex-col gap-4 justify-center items-center py-20">
-        <UFormField label="Nome do Problema">
-          <UInput type="text" v-model="problemName" />
-        </UFormField>
-        <UFormField>
-          <UButton label="Local do Projeto" color="secondary" type="button" v-if="
-            problemFolder === null || problemFolder.length === 0
-          " @click="onSelectPath" />
-          <LazyUInput :value="problemFolder" v-else @click="onSelectPath" />
-        </UFormField>
+      <div class="overflow-y-auto max-h-[80vh]">
+        <UHeader title="Crie um novo problema" to="" :toggle="false" />
+        <UForm @submit="onSubmit" class="flex flex-col gap-4 justify-center items-center py-20">
+          <UFormField label="Nome do Problema">
+            <UInput type="text" v-model="problemName" />
+          </UFormField>
+          <UFormField>
+            <UButton label="Local do Projeto" color="secondary" type="button" v-if="
+              problemFolder === null || problemFolder.length === 0
+            " @click="onSelectPath" />
+            <LazyUInput :value="problemFolder" v-else @click="onSelectPath" />
+          </UFormField>
 
-        <UButton class="w-fit text-lg px-5" type="submit" :disabled="problemName.length === 0 ||
-          problemFolder === null ||
-          problemFolder.length === 0
-          " :loading="problems.loading">
-          Criar
-        </UButton>
-      </UForm>
+          <UButton class="w-fit text-lg px-5" type="submit" :disabled="problemName.length === 0 ||
+            problemFolder === null ||
+            problemFolder.length === 0
+            " :loading="problems.loading">
+            Criar
+          </UButton>
+        </UForm>
+      </div>
     </template>
   </UModal>
 </template>

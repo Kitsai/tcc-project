@@ -9,6 +9,7 @@ export interface ProblemDefinition {
   checker?: string;
   validator?: string;
   mainSolution?: string;
+  generators: string[];
 }
 
 export interface ProblemStatement {

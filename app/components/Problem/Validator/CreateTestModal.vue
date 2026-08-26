@@ -1,24 +1,26 @@
 <template>
-  <UModal class="p-10" v-model:open="open">
+  <UModal v-model:open="open">
     <template #content>
-      <UForm class="flex flex-col gap-4" @submit="onSubmit">
-        <UFormField label="Test Number" name="id">
-          <UInput type="number" v-model="state.id" />
-        </UFormField>
-        <UTooltip v-if="!copyFrom" text='Use "===" to separate inputs, one verdict per line'>
-          <UFormField label="Multiple Tests?" name="mult">
-            <UCheckbox v-model="state.mult" />
+      <div class="p-10 overflow-y-auto max-h-[80vh]">
+        <UForm class="flex flex-col gap-4" @submit="onSubmit">
+          <UFormField label="Test Number" name="id">
+            <UInput type="number" v-model="state.id" />
           </UFormField>
-        </UTooltip>
-        <UFormField label="Input(s)" name="input">
-          <UTextarea v-model="state.input" />
-        </UFormField>
-        <UFormField label="Verdict(s)" name="verdict">
-          <UTextarea v-if="state.mult" v-model="state.verdict" />
-          <ProblemValidatorResultSelect v-else v-model="state.verdict" />
-        </UFormField>
-        <UButton class="w-fit" type="submit" label="Create" />
-      </UForm>
+          <UTooltip v-if="!copyFrom" text='Use "===" to separate inputs, one verdict per line'>
+            <UFormField label="Multiple Tests?" name="mult">
+              <UCheckbox v-model="state.mult" />
+            </UFormField>
+          </UTooltip>
+          <UFormField label="Input(s)" name="input">
+            <UTextarea v-model="state.input" />
+          </UFormField>
+          <UFormField label="Verdict(s)" name="verdict">
+            <UTextarea v-if="state.mult" v-model="state.verdict" />
+            <ProblemValidatorResultSelect v-else v-model="state.verdict" />
+          </UFormField>
+          <UButton class="w-fit" type="submit" label="Create" />
+        </UForm>
+      </div>
     </template>
   </UModal>
 </template>

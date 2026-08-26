@@ -40,7 +40,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 
-type FileRole = 'none' | 'checker' | 'validator'
+type FileRole = 'none' | 'checker' | 'validator' | 'generator'
 
 const problems = useProblems()
 const { invoke } = useTauri()
@@ -57,6 +57,7 @@ const roleItems = [
   { label: 'None', value: 'none' },
   { label: 'Checker', value: 'checker' },
   { label: 'Validator', value: 'validator' },
+  { label: 'Generator', value: 'generator' },
 ]
 
 const columns: TableColumn<string>[] = [
@@ -68,6 +69,7 @@ const columns: TableColumn<string>[] = [
 function roleFor(file: string): FileRole {
   if (checkerValue.value === file) return 'checker'
   if (validatorValue.value === file) return 'validator'
+  if (problems.currentProblem?.definition.generators?.includes(file)) return 'generator'
   return 'none'
 }
 
@@ -83,14 +85,24 @@ async function onRoleChange(file: string, role: FileRole) {
   if (role === previousRole) return
 
   try {
-    if (role !== 'none') {
+    if (role === 'checker' || role === 'validator') {
       await invoke('select_problem_file', { fileType: role, file })
       problems.currentProblem.definition[role] = file
+    } else if (role === 'generator') {
+      await invoke('tag_generator_file', { file })
+      problems.currentProblem.definition.generators ??= []
+      if (!problems.currentProblem.definition.generators.includes(file)) {
+        problems.currentProblem.definition.generators.push(file)
+      }
     }
 
-    if (previousRole !== 'none' && previousRole !== role) {
+    if (previousRole === 'checker' || previousRole === 'validator') {
       await invoke('unselect_problem_file', { fileType: previousRole })
       problems.currentProblem.definition[previousRole] = undefined
+    } else if (previousRole === 'generator') {
+      await invoke('untag_generator_file', { file })
+      const idx = problems.currentProblem.definition.generators?.indexOf(file) ?? -1
+      if (idx >= 0) problems.currentProblem.definition.generators.splice(idx, 1)
     }
   } catch (e) {
     throwError('Failed to update role: ' + e)

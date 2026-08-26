@@ -1,7 +1,7 @@
 <template>
-  <UModal class="p-10" v-model:open="open">
+  <UModal v-model:open="open">
     <template #content>
-      <div class="p-10 flex flex-col gap-3 max-h-[70vh]">
+      <div class="p-10 overflow-y-auto flex flex-col gap-3 max-h-[70vh]">
         <h1>Preview test {{ props.test?.id }}</h1>
         <div class="overflow-auto border border-muted rounded-md p-3 min-h-24">
           <span v-if="loading" class="text-muted">Generating...</span>

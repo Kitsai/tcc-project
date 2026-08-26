@@ -90,6 +90,8 @@ pub fn run() {
             commands::problems::save_statement,
             commands::problems::select_problem_file,
             commands::problems::unselect_problem_file,
+            commands::problems::tag_generator_file,
+            commands::problems::untag_generator_file,
             commands::checker::get_checker_tests,
             commands::checker::get_next_checker_test_id,
             commands::checker::checker_test_exists,
