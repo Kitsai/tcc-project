@@ -67,9 +67,9 @@ watch(open, (val) => {
     state.description = props.test.description;
 
     if (props.test.testType === 'Script') {
-      const [first, ...rest] = props.test.content.trim().split(/\s+/);
-      state.generatorFile = first ?? '';
-      state.args = rest.join(' ');
+      const { generatorFile, args } = parseScriptContent(props.test.content);
+      state.generatorFile = generatorFile;
+      state.args = args;
     } else {
       state.generatorFile = '';
       state.args = '';
@@ -81,7 +81,7 @@ async function OnSubmit() {
   if (!props.test) return;
 
   const content = state.testType === 'Script'
-    ? [state.generatorFile, state.args].filter(Boolean).join(' ').trim()
+    ? buildScriptContent(state.generatorFile, state.args)
     : state.content;
 
   const dto: TestDefinitionEditDto = {

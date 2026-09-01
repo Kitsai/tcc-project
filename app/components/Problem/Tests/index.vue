@@ -37,7 +37,8 @@
 
     <LazyProblemTestsCreateTestModal v-model:open="createModalOpen" @success="updateTests" />
     <LazyProblemTestsEditTestModal v-model:open="editModalOpen" :test="selectedTest" @success="OnEditSuccess" />
-    <LazyProblemTestsPreviewTestModal v-model:open="previewModalOpen" :test="selectedPreviewTest" />
+    <LazyProblemTestsPreviewTestModal v-model:open="previewModalOpen" :test="selectedPreviewTest"
+      @imported="updateTests" />
   </div>
 </template>
 

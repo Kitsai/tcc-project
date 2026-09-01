@@ -68,7 +68,7 @@ watch(open, async (val) => {
 
 async function OnSubmit() {
   const content = state.testType === 'Script'
-    ? [state.generatorFile, state.args].filter(Boolean).join(' ').trim()
+    ? buildScriptContent(state.generatorFile, state.args)
     : state.content;
 
   const test: TestDefinitionCreateDto = {

@@ -39,8 +39,9 @@
 
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { ProblemFileTypes } from '~/types/problem/files'
 
-type FileRole = 'none' | 'checker' | 'validator' | 'generator'
+type FileRole = ProblemFileTypes | 'none'
 
 const problems = useProblems()
 const { invoke } = useTauri()
@@ -78,6 +79,34 @@ function onCheckerChange(value: string | undefined) {
   problems.currentProblem.definition.checker = value
 }
 
+async function assignRole(file: string, role: ProblemFileTypes) {
+  if (!problems.currentProblem) return
+
+  if (role === 'checker' || role === 'validator') {
+    await invoke('select_problem_file', { fileType: role, file })
+    problems.currentProblem.definition[role] = file
+  } else {
+    await invoke('tag_generator_file', { file })
+    problems.currentProblem.definition.generators ??= []
+    if (!problems.currentProblem.definition.generators.includes(file)) {
+      problems.currentProblem.definition.generators.push(file)
+    }
+  }
+}
+
+async function clearRole(file: string, role: ProblemFileTypes) {
+  if (!problems.currentProblem) return
+
+  if (role === 'checker' || role === 'validator') {
+    await invoke('unselect_problem_file', { fileType: role })
+    problems.currentProblem.definition[role] = undefined
+  } else {
+    await invoke('untag_generator_file', { file })
+    const idx = problems.currentProblem.definition.generators?.indexOf(file) ?? -1
+    if (idx >= 0) problems.currentProblem.definition.generators.splice(idx, 1)
+  }
+}
+
 async function onRoleChange(file: string, role: FileRole) {
   if (!problems.currentProblem) return
 
@@ -85,25 +114,8 @@ async function onRoleChange(file: string, role: FileRole) {
   if (role === previousRole) return
 
   try {
-    if (role === 'checker' || role === 'validator') {
-      await invoke('select_problem_file', { fileType: role, file })
-      problems.currentProblem.definition[role] = file
-    } else if (role === 'generator') {
-      await invoke('tag_generator_file', { file })
-      problems.currentProblem.definition.generators ??= []
-      if (!problems.currentProblem.definition.generators.includes(file)) {
-        problems.currentProblem.definition.generators.push(file)
-      }
-    }
-
-    if (previousRole === 'checker' || previousRole === 'validator') {
-      await invoke('unselect_problem_file', { fileType: previousRole })
-      problems.currentProblem.definition[previousRole] = undefined
-    } else if (previousRole === 'generator') {
-      await invoke('untag_generator_file', { file })
-      const idx = problems.currentProblem.definition.generators?.indexOf(file) ?? -1
-      if (idx >= 0) problems.currentProblem.definition.generators.splice(idx, 1)
-    }
+    if (role !== 'none') await assignRole(file, role)
+    if (previousRole !== 'none') await clearRole(file, previousRole)
   } catch (e) {
     throwError('Failed to update role: ' + e)
   }

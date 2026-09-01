@@ -5,7 +5,8 @@ use std::{
 
 use crate::{
     constants::NO_PRBLM_ERR,
-    util::{ResultExt, StringResult},
+    error::{AppError, AppResult},
+    util::ResultExt,
 };
 
 use super::{
@@ -104,17 +105,22 @@ impl ProblemManager {
         }
     }
 
-    pub fn get_current_tests_path(&self) -> StringResult<Option<PathBuf>> {
-        let curr = self.current.read().err_to_string()?;
+    /// Runs `f` against the currently open problem and persists the result,
+    /// erroring if no problem is open. Centralizes the
+    /// read-lock/mutate/save-or-error shape shared by every command that
+    /// just needs to tweak a field on `ProblemDefinition` and write it back.
+    pub fn with_current_mut<F>(&self, f: F) -> AppResult<()>
+    where
+        F: FnOnce(&mut Problem),
+    {
+        let mut current = self.current.write().err_to_string()?;
 
-        if let Some(problem) = &*curr {
-            Ok(problem
-                .definition
-                .main_solution
-                .as_ref()
-                .map(|m| Path::new(ProblemFileType::Generator.directory()).join(m)))
+        if let Some(problem) = current.as_mut() {
+            f(problem);
+            problem.save_to_disk()?;
+            Ok(())
         } else {
-            Err(NO_PRBLM_ERR.to_string())
+            Err(AppError::from(NO_PRBLM_ERR))
         }
     }
 }

@@ -118,6 +118,7 @@ pub fn run() {
             commands::tests::create_test,
             commands::tests::edit_test,
             commands::tests::preview_test,
+            commands::tests::import_generated_tests,
             commands::lsp::lsp_start,
             commands::lsp::lsp_stop_all,
             commands::files::read_file_content,

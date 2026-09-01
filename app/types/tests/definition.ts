@@ -23,3 +23,12 @@ export interface TestDefinitionEditDto {
   example: boolean,
   description: string
 }
+
+export interface GeneratedFile {
+  name: string,
+  content: string
+}
+
+export type PreviewOutcome =
+  | { kind: 'Single', content: string }
+  | { kind: 'Multiple', files: GeneratedFile[] }

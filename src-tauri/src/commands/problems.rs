@@ -10,6 +10,7 @@ use tauri::{webview::cookie::time::UtcDateTime, State};
 use crate::{
     compile_service::CompileService,
     constants::{LANGUAGE_INVALID_ERR, NO_PRBLM_ERR},
+    error::{AppError, AppResult},
     problem::{
         get_default_checkers_path, Problem, ProblemFileType, ProblemManager, ProblemStatement,
         ProgrammingLanguage,
@@ -81,6 +82,18 @@ pub fn load_problem(path: String, state: State<ProblemManager>) -> Result<Proble
     Ok(problem)
 }
 
+/// Confirms `relative` exists under `problem_path` and resolves to a known
+/// programming language, returning it. Shared by every command that tags a
+/// file for a role (checker/validator/generator) requiring a compilable
+/// source file.
+fn validate_source_file(problem_path: &Path, relative: &Path) -> AppResult<ProgrammingLanguage> {
+    if !problem_path.join(relative).exists() {
+        return Err(AppError::from(format!("File does not exist: {:?}", relative)));
+    }
+
+    ProgrammingLanguage::get_from_path(relative).ok_or_else(|| AppError::from(LANGUAGE_INVALID_ERR))
+}
+
 fn verify_path(path: &Path) -> Result<(), String> {
     if let Some(extension) = path.extension() {
         if extension == "prblm" {
@@ -110,26 +123,20 @@ pub async fn select_problem_file(
     file: String,
     state: State<'_, ProblemManager>,
     compile_service: State<'_, CompileService>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     if !matches!(
         file_type,
         ProblemFileType::Validator | ProblemFileType::Checker
     ) {
-        return Err(format!("Filetype {} is not valid", file_type));
+        return Err(AppError::from(format!("Filetype {} is not valid", file_type)));
     }
 
     let problem_path = state.get_current_path()?;
     let relative = Path::new(file_type.directory()).join(&file);
-    let full_path = problem_path.join(&relative);
-
-    if !full_path.exists() {
-        return Err(format!("File does not exist: {:?}", full_path));
-    }
 
     // Only a file that compiles successfully may be selected as the problem's
     // validator/checker, so a broken file can never be set as active.
-    let language = ProgrammingLanguage::get_from_path(&relative)
-        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+    let language = validate_source_file(&problem_path, &relative)?;
 
     // Held through the persist below so a concurrent run_*_tests call can
     // never read this selection mid-update (see CompileService doc comment).
@@ -138,81 +145,50 @@ pub async fn select_problem_file(
         .compile(&language, &relative, &problem_path)
         .await?;
 
-    let mut current = state.current.write().err_to_string()?;
-
-    if let Some(problem) = current.as_mut() {
-        match file_type {
-            ProblemFileType::Validator => problem.definition.validator = Some(file),
-            ProblemFileType::Checker => problem.definition.checker = Some(file),
-            _ => unreachable!("file_type was validated above"),
-        }
-
-        problem.save_to_disk()
-    } else {
-        Err(NO_PRBLM_ERR.to_string())
-    }
+    state.with_current_mut(move |problem| match file_type {
+        ProblemFileType::Validator => problem.definition.validator = Some(file),
+        ProblemFileType::Checker => problem.definition.checker = Some(file),
+        _ => unreachable!("file_type was validated above"),
+    })
 }
 
 #[tauri::command]
 pub fn unselect_problem_file(
     file_type: ProblemFileType,
     state: State<ProblemManager>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     if !matches!(
         file_type,
         ProblemFileType::Validator | ProblemFileType::Checker
     ) {
-        return Err(format!("Filetype {} is not valid", file_type));
+        return Err(AppError::from(format!("Filetype {} is not valid", file_type)));
     }
 
-    let mut current = state.current.write().err_to_string()?;
-
-    if let Some(problem) = current.as_mut() {
-        match file_type {
-            ProblemFileType::Validator => problem.definition.validator = None,
-            ProblemFileType::Checker => problem.definition.checker = None,
-            _ => unreachable!("file_type was validated above"),
-        }
-
-        problem.save_to_disk()
-    } else {
-        Err(NO_PRBLM_ERR.to_string())
-    }
+    state.with_current_mut(|problem| match file_type {
+        ProblemFileType::Validator => problem.definition.validator = None,
+        ProblemFileType::Checker => problem.definition.checker = None,
+        _ => unreachable!("file_type was validated above"),
+    })
 }
 
 #[tauri::command]
-pub fn tag_generator_file(file: String, state: State<ProblemManager>) -> Result<(), String> {
+pub fn tag_generator_file(file: String, state: State<ProblemManager>) -> AppResult<()> {
     let problem_path = state.get_current_path()?;
     let relative = Path::new(ProblemFileType::Generator.directory()).join(&file);
+    validate_source_file(&problem_path, &relative)?;
 
-    if !problem_path.join(&relative).exists() {
-        return Err(format!("File does not exist: {:?}", relative));
-    }
-
-    ProgrammingLanguage::get_from_path(&relative).ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
-
-    let mut current = state.current.write().err_to_string()?;
-
-    if let Some(problem) = current.as_mut() {
+    state.with_current_mut(move |problem| {
         if !problem.definition.generators.contains(&file) {
             problem.definition.generators.push(file);
         }
-        problem.save_to_disk()
-    } else {
-        Err(NO_PRBLM_ERR.to_string())
-    }
+    })
 }
 
 #[tauri::command]
-pub fn untag_generator_file(file: String, state: State<ProblemManager>) -> Result<(), String> {
-    let mut current = state.current.write().err_to_string()?;
-
-    if let Some(problem) = current.as_mut() {
+pub fn untag_generator_file(file: String, state: State<ProblemManager>) -> AppResult<()> {
+    state.with_current_mut(move |problem| {
         problem.definition.generators.retain(|f| f != &file);
-        problem.save_to_disk()
-    } else {
-        Err(NO_PRBLM_ERR.to_string())
-    }
+    })
 }
 
 #[tauri::command]
