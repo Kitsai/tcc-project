@@ -24,17 +24,17 @@ impl ProblemManager {
         }
     }
 
-    pub fn get_current_path(&self) -> Result<PathBuf, String> {
+    pub fn get_current_path(&self) -> AppResult<PathBuf> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
             Ok(problem.path.clone())
         } else {
-            Err(NO_PRBLM_ERR.to_string())
+            Err(AppError::from(NO_PRBLM_ERR))
         }
     }
 
-    pub fn set_main_solution(&self, file_name: Option<String>) -> Result<(), String> {
+    pub fn set_main_solution(&self, file_name: Option<String>) -> AppResult<()> {
         let mut current = self.current.write().err_to_string()?;
         if let Some(problem) = current.as_mut() {
             if problem.definition.main_solution != file_name {
@@ -45,7 +45,7 @@ impl ProblemManager {
         Ok(())
     }
 
-    pub fn sync_main_solution(&self, solutions: &[SolutionDescription]) -> Result<(), String> {
+    pub fn sync_main_solution(&self, solutions: &[SolutionDescription]) -> AppResult<()> {
         let main_file = solutions
             .iter()
             .find(|s| matches!(s.tag, SolutionTag::Main))
@@ -54,7 +54,7 @@ impl ProblemManager {
     }
 
     /// Returns the validator's source path, relative to the problem's root directory.
-    pub fn get_current_validator_path(&self) -> Result<Option<PathBuf>, String> {
+    pub fn get_current_validator_path(&self) -> AppResult<Option<PathBuf>> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
@@ -64,13 +64,13 @@ impl ProblemManager {
                 .as_ref()
                 .map(|v| Path::new(ProblemFileType::Validator.directory()).join(v)))
         } else {
-            Err(NO_PRBLM_ERR.to_string())
+            Err(AppError::from(NO_PRBLM_ERR))
         }
     }
 
     /// Returns the main solution's source path, relative to the problem's
     /// root directory.
-    pub fn get_main_solution_path(&self) -> Result<Option<PathBuf>, String> {
+    pub fn get_main_solution_path(&self) -> AppResult<Option<PathBuf>> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
@@ -80,14 +80,14 @@ impl ProblemManager {
                 .as_ref()
                 .map(|m| Path::new(ProblemFileType::Solution.directory()).join(m)))
         } else {
-            Err(NO_PRBLM_ERR.to_string())
+            Err(AppError::from(NO_PRBLM_ERR))
         }
     }
 
     /// Returns the checker's source path. For default checkers (stored with the
     /// `@default:` prefix) this is an absolute path into the bundled resources
     /// directory; for user files it is a relative path under the problem's `files/`.
-    pub fn get_current_checker_path(&self) -> Result<Option<PathBuf>, String> {
+    pub fn get_current_checker_path(&self) -> AppResult<Option<PathBuf>> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
@@ -101,7 +101,7 @@ impl ProblemManager {
                 }
             }))
         } else {
-            Err(NO_PRBLM_ERR.to_string())
+            Err(AppError::from(NO_PRBLM_ERR))
         }
     }
 

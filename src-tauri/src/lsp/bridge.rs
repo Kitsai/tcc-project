@@ -11,7 +11,10 @@ use tokio::{
 };
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 
-use crate::lsp::registry::LspRegistry;
+use crate::{
+    error::{AppError, AppResult},
+    lsp::registry::LspRegistry,
+};
 
 pub struct LspBridge {
     registry: Arc<RwLock<LspRegistry>>,
@@ -35,7 +38,7 @@ impl LspBridge {
         &self,
         language_id: &str,
         workspace_dir: String,
-    ) -> Result<u16, String> {
+    ) -> AppResult<u16> {
         let key = (language_id.to_string(), workspace_dir.clone());
         {
             let servers = self.active_servers.lock().map_err(|e| e.to_string())?;
@@ -48,13 +51,13 @@ impl LspBridge {
             let registry = self.registry.read().map_err(|e| e.to_string())?;
             registry
                 .get_by_language(language_id)
-                .ok_or(format!("No LSP server for: {}", language_id))?
+                .ok_or_else(|| AppError::from(format!("No LSP server for: {}", language_id)))?
         };
 
         let binary_path = server
             .get_binary_path()
             .await
-            .ok_or(format!("Binary not found: {}", server.binary_name()))?;
+            .ok_or_else(|| AppError::from(format!("Binary not found: {}", server.binary_name())))?;
 
         let mut child = Command::new(&binary_path)
             .args(&server.args())
@@ -114,7 +117,7 @@ impl LspBridge {
         Ok(port)
     }
 
-    pub fn stop_all(&self) -> Result<(), String> {
+    pub fn stop_all(&self) -> AppResult<()> {
         let mut servers = self.active_servers.lock().map_err(|e| e.to_string())?;
         for (_, mut instance) in servers.drain() {
             let _ = instance._process.start_kill();
@@ -134,7 +137,7 @@ async fn proxy_lsp_connection(
     stream: TcpStream,
     mut lsp_stdin: ChildStdin,
     mut lsp_stdout: ChildStdout,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let ws_stream = accept_async(stream)
         .await
         .map_err(|e| format!("WS handshake failed: {}", e))?;
@@ -158,7 +161,7 @@ async fn proxy_lsp_connection(
                 lsp_stdin.write_all(&data).await.map_err(|e| e.to_string())?;
                 lsp_stdin.flush().await.map_err(|e| e.to_string())?;
             }
-            Ok::<(), String>(())
+            Ok::<(), AppError>(())
         } => res,
         res = async {
             use tokio::io::AsyncReadExt;
@@ -213,7 +216,7 @@ async fn proxy_lsp_connection(
                     break;
                 }
             }
-            Ok::<(), String>(())
+            Ok::<(), AppError>(())
         } => res,
     }
 }

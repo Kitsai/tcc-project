@@ -6,6 +6,8 @@ use tauri::{
     AppHandle, Emitter,
 };
 
+use crate::error::AppResult;
+
 pub trait EventEmitter: Clone + Send + 'static {
     fn emit<S: Serialize + Clone + Send + 'static>(&self, event: &str, payload: S);
 }
@@ -31,8 +33,8 @@ impl<T, E: Display> ResultExt for Result<T, E> {
 }
 
 pub trait Persistant: Sized {
-    fn save(&self, path: &Path) -> Result<(), String>;
-    fn load(path: &Path) -> Result<Self, String>;
+    fn save(&self, path: &Path) -> AppResult<()>;
+    fn load(path: &Path) -> AppResult<Self>;
 }
 
 /// Marker trait to opt-into the default Serde-based implementation of `Persistant`.
@@ -42,16 +44,17 @@ impl<T> Persistant for T
 where
     T: SerdePersistant,
 {
-    fn save(&self, path: &Path) -> Result<(), String> {
+    fn save(&self, path: &Path) -> AppResult<()> {
         let file = std::fs::File::create(path).err_to_string()?;
         let writer = std::io::BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self).err_to_string()
+        serde_json::to_writer_pretty(writer, self).err_to_string()?;
+        Ok(())
     }
 
-    fn load(path: &Path) -> Result<Self, String> {
+    fn load(path: &Path) -> AppResult<Self> {
         let file = std::fs::File::open(path).err_to_string()?;
         let reader = std::io::BufReader::new(file);
-        serde_json::from_reader(reader).err_to_string()
+        Ok(serde_json::from_reader(reader).err_to_string()?)
     }
 }
 
@@ -78,8 +81,6 @@ pub fn num_cpus() -> usize {
         .map(|n| n.get())
         .unwrap_or(4)
 }
-
-pub type StringResult<T> = Result<T, String>;
 
 /// Current UTC time as `"Tue Feb 10 00:28:04 UTC 2026"`.
 pub fn now() -> String {

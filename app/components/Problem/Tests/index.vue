@@ -23,7 +23,7 @@
       <template #actions-cell="{ row }">
         <div class="flex items-center gap-2">
           <UTooltip text="Delete this test">
-            <UButton icon=" i-lucide-trash" color="error" variant="ghost" @click.stop="OnDelete(row.original.id)" />
+            <UButton icon="i-lucide-trash" color="error" variant="ghost" @click.stop="OnDelete(row.original.id)" />
           </UTooltip>
           <UTooltip text="Edit this test">
             <UButton icon="i-lucide-square-pen" color="neutral" variant="ghost" @click.stop="OnEdit(row.original)" />

@@ -3,7 +3,10 @@ use std::fs;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
-use crate::util::{Persistant, ResultExt};
+use crate::{
+    error::AppResult,
+    util::{Persistant, ResultExt},
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProblemStatement {
@@ -29,7 +32,7 @@ impl ProblemStatement {
 }
 
 impl Persistant for ProblemStatement {
-    fn save(&self, base_path: &std::path::Path) -> Result<(), String> {
+    fn save(&self, base_path: &std::path::Path) -> AppResult<()> {
         let statement_dir = base_path.join("statement");
         debug!("Creating tex files at {:?}", statement_dir);
 
@@ -45,7 +48,7 @@ impl Persistant for ProblemStatement {
         Ok(())
     }
 
-    fn load(base_path: &std::path::Path) -> Result<Self, String> {
+    fn load(base_path: &std::path::Path) -> AppResult<Self> {
         let statement_dir = base_path.join("statement");
 
         let name = fs::read_to_string(statement_dir.join("name.tex")).err_to_string()?;

@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use tokio::sync::{Mutex, MutexGuard};
 
-use crate::{problem::ProgrammingLanguage, runner::Runner};
+use crate::{error::AppResult, problem::ProgrammingLanguage, runner::Runner};
 
 /// Thin facade bundling the shared `Runner` with the compile step, so command
 /// handlers don't each need their own `Arc<dyn Runner>` plumbing.
@@ -35,7 +35,7 @@ impl CompileService {
         language: &ProgrammingLanguage,
         relative: &Path,
         project_path: &Path,
-    ) -> Result<(), String> {
+    ) -> AppResult<()> {
         language.compile(relative, project_path, self.runner.as_ref()).await
     }
 }

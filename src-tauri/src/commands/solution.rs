@@ -5,15 +5,16 @@ use tauri::State;
 use crate::{
     compile_service::CompileService,
     constants::LANGUAGE_INVALID_ERR,
+    error::AppResult,
     problem::{ProblemManager, ProgrammingLanguage, SolutionDescription, SolutionTag},
     runner::Runner,
-    util::{ResultExt, StringResult},
+    util::ResultExt,
 };
 
 #[tauri::command]
 pub async fn get_solutions(
     state: State<'_, ProblemManager>,
-) -> StringResult<Vec<SolutionDescription>> {
+) -> AppResult<Vec<SolutionDescription>> {
     let project_path = state.get_current_path()?;
 
     SolutionDescription::load_all(&project_path)
@@ -23,7 +24,7 @@ pub async fn get_solutions(
 pub async fn delete_solution(
     file_name: String,
     project: State<'_, ProblemManager>,
-) -> StringResult<()> {
+) -> AppResult<()> {
     let project_path = project.get_current_path()?;
 
     SolutionDescription::delete_solution(&project_path, file_name)
@@ -33,7 +34,7 @@ pub async fn delete_solution(
 pub async fn create_new_solution(
     file_name: String,
     problem: State<'_, ProblemManager>,
-) -> StringResult<()> {
+) -> AppResult<()> {
     let problem_path = problem.get_current_path()?;
 
     SolutionDescription::create_new(file_name, &problem_path)
@@ -43,7 +44,7 @@ pub async fn create_new_solution(
 pub async fn add_solution_files(
     paths: Vec<PathBuf>,
     problem: State<'_, ProblemManager>,
-) -> StringResult<()> {
+) -> AppResult<()> {
     let problem_path = problem.get_current_path()?;
 
     for path in paths {
@@ -57,7 +58,7 @@ pub async fn change_tag(
     file_name: String,
     tag: SolutionTag,
     state: State<'_, ProblemManager>,
-) -> StringResult<Vec<SolutionDescription>> {
+) -> AppResult<Vec<SolutionDescription>> {
     let path = state.get_current_path()?;
 
     let solutions = SolutionDescription::change_tag(&path, &file_name, tag)?;
@@ -68,7 +69,7 @@ pub async fn change_tag(
 #[tauri::command]
 pub async fn verify_solutions(
     state: State<'_, ProblemManager>,
-) -> StringResult<Vec<SolutionDescription>> {
+) -> AppResult<Vec<SolutionDescription>> {
     let path = state.get_current_path()?;
     let solutions = SolutionDescription::verify_and_load(&path)?;
     state.sync_main_solution(&solutions)?;
@@ -81,7 +82,7 @@ pub async fn output_from_main(
     problem: State<'_, ProblemManager>,
     compile_service: State<'_, CompileService>,
     runner: State<'_, Arc<dyn Runner>>,
-) -> StringResult<String> {
+) -> AppResult<String> {
     let problem_path = problem.get_current_path()?;
 
     let solution_path = problem

@@ -5,26 +5,27 @@ use tauri::{AppHandle, State};
 use crate::{
     compile_service::CompileService,
     constants::{CHECKER_TESTS_PATH, LANGUAGE_INVALID_ERR},
+    error::{AppError, AppResult},
     problem::{CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, ProblemManager, ProgrammingLanguage},
     runner::Runner,
     util::{next_available_id, Persistant, ResultExt},
 };
 
 #[tauri::command]
-pub fn get_checker_tests(state: State<ProblemManager>) -> Result<Vec<CheckerTest>, String> {
+pub fn get_checker_tests(state: State<ProblemManager>) -> AppResult<Vec<CheckerTest>> {
     let problem_path = state.get_current_path()?;
 
     CheckerTest::get_all(&problem_path)
 }
 
 #[tauri::command]
-pub fn get_next_checker_test_id(state: State<ProblemManager>) -> Result<u16, String> {
+pub fn get_next_checker_test_id(state: State<ProblemManager>) -> AppResult<u16> {
     let path = state.get_current_path()?.join(CHECKER_TESTS_PATH);
     Ok(next_available_id(&path))
 }
 
 #[tauri::command]
-pub fn checker_test_exists(id: u16, state: State<ProblemManager>) -> Result<bool, String> {
+pub fn checker_test_exists(id: u16, state: State<ProblemManager>) -> AppResult<bool> {
     let path = state
         .get_current_path()?
         .join(CHECKER_TESTS_PATH)
@@ -37,7 +38,7 @@ pub fn checker_test_exists(id: u16, state: State<ProblemManager>) -> Result<bool
 pub fn create_checker_test(
     test: CheckerTestCreateDto,
     state: State<ProblemManager>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     CheckerTest::create(test, &state.get_current_path()?)
 }
 
@@ -45,7 +46,7 @@ pub fn create_checker_test(
 pub fn edit_checker_test(
     dto: CheckerTestEditDto,
     state: State<ProblemManager>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let path = state
         .get_current_path()?
         .join(format!("{}/{:02}", CHECKER_TESTS_PATH, dto.id));
@@ -56,17 +57,18 @@ pub fn edit_checker_test(
         current.edit(&dto.input, &dto.output, &dto.answer, dto.verdict.parse()?);
         current.save(&path)
     } else {
-        Err(format!("Test with id {} does not exist", dto.id))
+        Err(AppError::from(format!("Test with id {} does not exist", dto.id)))
     }
 }
 
 #[tauri::command]
-pub fn delete_checker_test(id: u16, state: State<ProblemManager>) -> Result<(), String> {
+pub fn delete_checker_test(id: u16, state: State<ProblemManager>) -> AppResult<()> {
     let path = state
         .get_current_path()?
         .join(format!("{}/{:02}", CHECKER_TESTS_PATH, id));
 
-    fs::remove_file(path).err_to_string()
+    fs::remove_file(path).err_to_string()?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -75,7 +77,7 @@ pub async fn run_checker_tests(
     problem_manager: State<'_, ProblemManager>,
     compile_service: State<'_, CompileService>,
     app: AppHandle,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let problem_path = problem_manager.get_current_path()?;
 
     // Held while reading the current checker so a concurrent select_* call

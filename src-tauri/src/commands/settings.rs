@@ -1,8 +1,8 @@
 use tauri::State;
-use crate::settings::{AppSettings, AppSettingsDto};
+use crate::{error::AppResult, settings::{AppSettings, AppSettingsDto}};
 
 #[tauri::command]
-pub fn get_app_paths() -> Result<serde_json::Value, String> {
+pub fn get_app_paths() -> AppResult<serde_json::Value> {
     let mut home = dirs::home_dir().ok_or("Could not find home directory")?;
     home.push(".tcc-project");
 
@@ -25,13 +25,13 @@ pub fn get_app_paths() -> Result<serde_json::Value, String> {
 pub fn save_settings(
     new_settings: AppSettingsDto,
     state: State<AppSettings>,
-) -> Result<AppSettingsDto, String> {
+) -> AppResult<AppSettingsDto> {
     state.update(&new_settings)?;
     state.save()?;
     state.to_dto()
 }
 
 #[tauri::command]
-pub fn get_settings(state: State<AppSettings>) -> Result<AppSettingsDto, String> {
+pub fn get_settings(state: State<AppSettings>) -> AppResult<AppSettingsDto> {
     state.to_dto()
 }

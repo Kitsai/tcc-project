@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
+use crate::error::AppResult;
+
 #[async_trait]
 pub trait Runner: Send + Sync + 'static {
     async fn execute(&self, request: ExecutionRequest) -> ExecutionResult;
@@ -85,11 +87,11 @@ pub struct ExecutionInfo {
 }
 
 impl ExecutionInfo {
-    pub fn to_result(self) -> Result<String, String> {
+    pub fn to_result(self) -> AppResult<String> {
         if self.exit_code == 0 {
             Ok(self.stdout)
         } else {
-            Err(self.stderr)
+            Err(self.stderr.into())
         }
     }
 }

@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::SOLUTIONS_PATH,
-    util::{self, Persistant, ResultExt, SerdePersistant, StringResult},
+    error::{AppError, AppResult},
+    util::{self, Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -69,11 +70,11 @@ impl From<SolutionDescriptionFile> for SolutionDescription {
 }
 
 impl Persistant for SolutionDescription {
-    fn save(&self, path: &Path) -> Result<(), String> {
+    fn save(&self, path: &Path) -> AppResult<()> {
         SolutionDescriptionFile::from(self).save(path)
     }
 
-    fn load(path: &Path) -> Result<Self, String> {
+    fn load(path: &Path) -> AppResult<Self> {
         SolutionDescriptionFile::load(path).map(Into::into)
     }
 }
@@ -94,11 +95,11 @@ impl SolutionDescription {
             .join(format!("{file_name}.desc"))
     }
 
-    pub fn save_solution(&self, problem_path: &Path) -> Result<(), String> {
+    pub fn save_solution(&self, problem_path: &Path) -> AppResult<()> {
         self.save(&Self::desc_path(problem_path, &self.file_name))
     }
 
-    fn load_descs(problem_path: &Path) -> StringResult<Vec<SolutionDescription>> {
+    fn load_descs(problem_path: &Path) -> AppResult<Vec<SolutionDescription>> {
         let solution_path = problem_path.join(SOLUTIONS_PATH);
         let mut descriptions: Vec<SolutionDescription> = vec![];
 
@@ -112,11 +113,11 @@ impl SolutionDescription {
         Ok(descriptions)
     }
 
-    pub fn load_all(problem_path: &Path) -> StringResult<Vec<SolutionDescription>> {
+    pub fn load_all(problem_path: &Path) -> AppResult<Vec<SolutionDescription>> {
         Self::load_descs(problem_path)
     }
 
-    pub fn verify_and_load(problem_path: &Path) -> StringResult<Vec<SolutionDescription>> {
+    pub fn verify_and_load(problem_path: &Path) -> AppResult<Vec<SolutionDescription>> {
         let solution_path = problem_path.join(SOLUTIONS_PATH);
 
         let mut descriptions: Vec<SolutionDescription> = vec![];
@@ -140,7 +141,7 @@ impl SolutionDescription {
         Ok(verified)
     }
 
-    fn enforce_single_main(problem_path: &Path, descriptions: &mut Vec<SolutionDescription>) -> StringResult<()> {
+    fn enforce_single_main(problem_path: &Path, descriptions: &mut Vec<SolutionDescription>) -> AppResult<()> {
         let mut found_main = false;
         for desc in descriptions.iter_mut() {
             if matches!(desc.tag, SolutionTag::Main) {
@@ -159,7 +160,7 @@ impl SolutionDescription {
         problem_path: &Path,
         file_name: &str,
         new_tag: SolutionTag,
-    ) -> StringResult<Vec<SolutionDescription>> {
+    ) -> AppResult<Vec<SolutionDescription>> {
         if matches!(new_tag, SolutionTag::Main) {
             let mut descriptions = Self::load_descs(problem_path)?;
 
@@ -175,7 +176,7 @@ impl SolutionDescription {
                     desc.tag = SolutionTag::Main;
                     desc.save_solution(problem_path)?;
                 }
-                None => return Err(format!("Solution '{file_name}' not found")),
+                None => return Err(AppError::from(format!("Solution '{file_name}' not found"))),
             }
 
             Ok(descriptions)
@@ -196,7 +197,7 @@ impl SolutionDescription {
         problem_path: &Path,
         descriptions: Vec<SolutionDescription>,
         sources: HashSet<String>,
-    ) -> Result<Vec<SolutionDescription>, String> {
+    ) -> AppResult<Vec<SolutionDescription>> {
         let mut verified: Vec<SolutionDescription> = vec![];
 
         for description in descriptions {
@@ -225,13 +226,14 @@ impl SolutionDescription {
         Ok(verified)
     }
 
-    pub fn delete_solution(project_path: &Path, file_name: String) -> Result<(), String> {
+    pub fn delete_solution(project_path: &Path, file_name: String) -> AppResult<()> {
         let source_path = project_path.join(SOLUTIONS_PATH).join(&file_name);
         fs::remove_file(&source_path).err_to_string()?;
-        fs::remove_file(Self::desc_path(project_path, &file_name)).err_to_string()
+        fs::remove_file(Self::desc_path(project_path, &file_name)).err_to_string()?;
+        Ok(())
     }
 
-    pub fn create_new(file_name: String, problem_path: &Path) -> StringResult<()> {
+    pub fn create_new(file_name: String, problem_path: &Path) -> AppResult<()> {
         let destination = problem_path.join(SOLUTIONS_PATH).join(&file_name);
 
         fs::File::create_new(destination).err_to_string()?;
@@ -239,7 +241,7 @@ impl SolutionDescription {
         Self::new(file_name).save_solution(problem_path)
     }
 
-    pub fn create_from_existing(full_path: PathBuf, problem_path: &Path) -> StringResult<()> {
+    pub fn create_from_existing(full_path: PathBuf, problem_path: &Path) -> AppResult<()> {
         let file_name = full_path
             .file_name()
             .ok_or("Path has no file name")?

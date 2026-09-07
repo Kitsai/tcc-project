@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{BINARY_DIR, BINARY_EXTENSION, CPP_COMPILER, PYTHON_INTERPRETER},
+    error::AppResult,
     runner::{ExecutionRequest, Runner},
     util::ResultExt,
 };
@@ -136,7 +137,7 @@ impl ProgrammingLanguage {
         relative: &Path,
         project_path: &Path,
         runner: &dyn Runner,
-    ) -> Result<(), String> {
+    ) -> AppResult<()> {
         let Some(compiler) = self.get_compiler() else {
             return Ok(());
         };
@@ -168,7 +169,7 @@ impl ProgrammingLanguage {
 /// True if `destination` is missing or older than `source`, i.e. a recompile
 /// is actually needed. Errs on the side of recompiling: any I/O failure while
 /// checking is not treated as "up to date".
-fn needs_recompile(source: &Path, destination: &Path) -> Result<bool, String> {
+fn needs_recompile(source: &Path, destination: &Path) -> AppResult<bool> {
     let Ok(dest_meta) = std::fs::metadata(destination) else {
         return Ok(true);
     };

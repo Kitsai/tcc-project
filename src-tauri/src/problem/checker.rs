@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{CHECKER_TESTS_PATH, LANGUAGE_INVALID_ERR, MULT_SEPARATOR},
+    error::{AppError, AppResult},
     problem::ProgrammingLanguage,
     runner::Runner,
     util::{next_available_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
@@ -67,7 +68,7 @@ impl CheckerTest {
         }
     }
 
-    pub fn create(dto: CheckerTestCreateDto, problem_path: &Path) -> Result<(), String> {
+    pub fn create(dto: CheckerTestCreateDto, problem_path: &Path) -> AppResult<()> {
         let tests_path = problem_path.join(CHECKER_TESTS_PATH);
 
         if dto.mult {
@@ -78,10 +79,9 @@ impl CheckerTest {
 
             let len = inputs.len();
             if outputs.len() != len || answers.len() != len || verdicts.len() != len {
-                return Err(
-                    "Inputs, outputs, answers, and verdicts must have the same number of entries."
-                        .to_string(),
-                );
+                return Err(AppError::from(
+                    "Inputs, outputs, answers, and verdicts must have the same number of entries.",
+                ));
             }
 
             let mut current_id = dto.id;
@@ -109,7 +109,7 @@ impl CheckerTest {
             let path = tests_path.join(format!("{:02}", dto.id));
 
             if path.exists() {
-                return Err(format!("Test with id {} already exists", dto.id));
+                return Err(AppError::from(format!("Test with id {} already exists", dto.id)));
             }
 
             let new_test = Self::new(dto.id, &dto.input, &dto.output, &dto.answer, dto.verdict.parse()?);
@@ -131,7 +131,7 @@ impl CheckerTest {
         self.comment = comment;
     }
 
-    pub fn get_all(problem_path: &Path) -> Result<Vec<CheckerTest>, String> {
+    pub fn get_all(problem_path: &Path) -> AppResult<Vec<CheckerTest>> {
         let mut ret = Vec::new();
         let path = problem_path.join(CHECKER_TESTS_PATH);
 
@@ -149,7 +149,7 @@ impl CheckerTest {
         checker_path: PathBuf,
         emitter: impl EventEmitter,
         runner: std::sync::Arc<dyn Runner>,
-    ) -> Result<(), String> {
+    ) -> AppResult<()> {
         let tests = Self::get_all(problem_path)?;
         let tests_path = problem_path.join(CHECKER_TESTS_PATH);
 

@@ -23,13 +23,13 @@ pub fn create_problem(
     name: String,
     path: String,
     state: State<ProblemManager>,
-) -> Result<Problem, String> {
+) -> AppResult<Problem> {
     let path = PathBuf::from_str(&path).err_to_string()?;
 
     let _date = UtcDateTime::now().to_string();
 
     if !path.is_dir() {
-        return Err("Caminho não é um diretório válido!".to_string());
+        return Err(AppError::from("Caminho não é um diretório válido!"));
     }
 
     let path = path.join(&name);
@@ -53,7 +53,7 @@ pub fn create_problem(
     Ok(problem)
 }
 
-fn create_file_dirs(base_path: &Path) -> Result<(), String> {
+fn create_file_dirs(base_path: &Path) -> AppResult<()> {
     fs::create_dir(base_path.join("files")).err_to_string()?;
     fs::create_dir(base_path.join("solutions")).err_to_string()?;
     fs::create_dir(base_path.join("tests")).err_to_string()?;
@@ -66,7 +66,7 @@ fn create_file_dirs(base_path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn load_problem(path: String, state: State<ProblemManager>) -> Result<Problem, String> {
+pub fn load_problem(path: String, state: State<ProblemManager>) -> AppResult<Problem> {
     let path = PathBuf::from_str(&path).err_to_string()?;
 
     verify_path(&path)?;
@@ -94,18 +94,18 @@ fn validate_source_file(problem_path: &Path, relative: &Path) -> AppResult<Progr
     ProgrammingLanguage::get_from_path(relative).ok_or_else(|| AppError::from(LANGUAGE_INVALID_ERR))
 }
 
-fn verify_path(path: &Path) -> Result<(), String> {
+fn verify_path(path: &Path) -> AppResult<()> {
     if let Some(extension) = path.extension() {
         if extension == "prblm" {
             return Ok(());
         }
     }
 
-    Err("File is not a problem".to_string())
+    Err(AppError::from("File is not a problem"))
 }
 
 #[tauri::command]
-pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> Result<(), String> {
+pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> AppResult<()> {
     let mut current = state.current.write().err_to_string()?;
 
     if let Some(problem) = current.as_mut() {
@@ -113,7 +113,7 @@ pub fn save_statement(stmt: ProblemStatement, state: State<ProblemManager>) -> R
         problem.save_to_disk()?;
         Ok(())
     } else {
-        Err("No problem open to save statement!".to_string())
+        Err(AppError::from("No problem open to save statement!"))
     }
 }
 
@@ -196,13 +196,13 @@ pub async fn select_default_checker(
     name: String,
     state: State<'_, ProblemManager>,
     compile_service: State<'_, CompileService>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let checkers_path = get_default_checkers_path()
         .ok_or_else(|| "Default checkers directory not found".to_string())?;
     let checker_path = checkers_path.join(&name);
 
     if !checker_path.exists() {
-        return Err(format!("Default checker '{}' not found", name));
+        return Err(AppError::from(format!("Default checker '{}' not found", name)));
     }
 
     let problem_path = state.get_current_path()?;
@@ -222,6 +222,6 @@ pub async fn select_default_checker(
         problem.definition.checker = Some(format!("@default:{}", name));
         problem.save_to_disk()
     } else {
-        Err(NO_PRBLM_ERR.to_string())
+        Err(AppError::from(NO_PRBLM_ERR))
     }
 }

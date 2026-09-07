@@ -3,7 +3,7 @@ use std::{fs::create_dir_all, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use std::sync::RwLock;
 
-use crate::APP_NAME;
+use crate::{error::AppResult, APP_NAME};
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub enum ConcurrencySettings {
@@ -52,7 +52,7 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
-    pub fn save(&self) -> Result<(), String> {
+    pub fn save(&self) -> AppResult<()> {
         let config_path = config_file().map_err(|err| err.to_string())?;
 
         let parent = config_path
@@ -69,7 +69,7 @@ impl AppSettings {
         Ok(())
     }
 
-    pub fn load() -> Result<Self, String> {
+    pub fn load() -> AppResult<Self> {
         let path = config_file().map_err(|err| err.to_string())?;
         if !path.exists() {
             let def = Self::default();
@@ -82,13 +82,13 @@ impl AppSettings {
         Ok(settings)
     }
 
-    pub fn update(&self, dto: &AppSettingsDto) -> Result<(), String> {
+    pub fn update(&self, dto: &AppSettingsDto) -> AppResult<()> {
         *self.max_concurrency.write().map_err(|e| e.to_string())? =
             ConcurrencySettings::from(dto.max_concurrency);
         Ok(())
     }
 
-    pub fn to_dto(&self) -> Result<AppSettingsDto, String> {
+    pub fn to_dto(&self) -> AppResult<AppSettingsDto> {
         let max_concurrency = self.max_concurrency.read().map_err(|e| e.to_string())?;
         Ok(AppSettingsDto {
             max_concurrency: (*max_concurrency).into(),

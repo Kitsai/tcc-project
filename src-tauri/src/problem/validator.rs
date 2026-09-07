@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{LANGUAGE_INVALID_ERR, MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
+    error::{AppError, AppResult},
     problem::ProgrammingLanguage,
     runner::Runner,
     util::{next_available_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
@@ -62,7 +63,7 @@ impl ValidatorTest {
         }
     }
 
-    pub fn create(dto: ValidatorTestCreateDto, problem_path: &Path) -> Result<(), String> {
+    pub fn create(dto: ValidatorTestCreateDto, problem_path: &Path) -> AppResult<()> {
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
         if dto.mult {
@@ -70,7 +71,9 @@ impl ValidatorTest {
             let verdicts: Vec<&str> = dto.verdict.lines().collect();
 
             if inputs.len() != verdicts.len() {
-                return Err("Inputs and verdicts must have the same number of entries.".to_string());
+                return Err(AppError::from(
+                    "Inputs and verdicts must have the same number of entries.",
+                ));
             }
 
             let mut current_id = dto.id;
@@ -92,7 +95,7 @@ impl ValidatorTest {
             let path = tests_path.join(format!("{:02}", dto.id));
 
             if path.exists() {
-                return Err(format!("Test with id {} already exists", dto.id));
+                return Err(AppError::from(format!("Test with id {} already exists", dto.id)));
             }
 
             let new_test = Self::new(dto.id, &dto.input, dto.verdict.parse()?);
@@ -111,7 +114,7 @@ impl ValidatorTest {
         self.actual = actual;
     }
 
-    pub fn get_all(problem_path: &Path) -> Result<Vec<ValidatorTest>, String> {
+    pub fn get_all(problem_path: &Path) -> AppResult<Vec<ValidatorTest>> {
         let mut ret = Vec::new();
         let path = problem_path.join(VALIDATOR_TESTS_PATH);
 
@@ -129,7 +132,7 @@ impl ValidatorTest {
         validator_path: PathBuf,
         emitter: impl EventEmitter,
         runner: std::sync::Arc<dyn Runner>,
-    ) -> Result<(), String> {
+    ) -> AppResult<()> {
         let tests = Self::get_all(problem_path)?;
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 

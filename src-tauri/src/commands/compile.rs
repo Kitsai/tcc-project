@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::{
+    error::AppResult,
     problem::{ProblemFileType, ProblemManager, ProgrammingLanguage},
     runner::{ExecutionRequest, Runner},
 };
@@ -13,7 +14,7 @@ use log::debug;
 #[tauri::command]
 pub async fn check_languages(
     runner: State<'_, Arc<dyn Runner>>,
-) -> Result<LanguageDetails, String> {
+) -> AppResult<LanguageDetails> {
     let mut cpp_request = ExecutionRequest::new("g++");
     cpp_request.with_arg("--version");
 
@@ -57,7 +58,7 @@ pub async fn check_file_compiles(
     file: String,
     problem_manager: State<'_, ProblemManager>,
     runner: State<'_, Arc<dyn Runner>>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let relative = PathBuf::from(file_type.directory()).join(&file);
     let lang = ProgrammingLanguage::get_from_path(&relative).ok_or("Unknown Language")?;
     let problem_path = problem_manager.get_current_path()?;

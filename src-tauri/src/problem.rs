@@ -4,6 +4,8 @@ use log::debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::{AppError, AppResult};
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Problem {
     pub path: PathBuf,
@@ -23,17 +25,17 @@ impl Problem {
         }
     }
 
-    pub fn save_to_disk(&self) -> Result<(), String> {
+    pub fn save_to_disk(&self) -> AppResult<()> {
         let file_path = self.path.join(format!("{}.prblm", self.definition.name));
         self.save(&file_path)
     }
 }
 
 impl Persistant for Problem {
-    fn load(path: &Path) -> Result<Self, String> {
+    fn load(path: &Path) -> AppResult<Self> {
         let base = path
             .parent()
-            .ok_or(String::from("Failed to get base problem path"))?;
+            .ok_or_else(|| AppError::from("Failed to get base problem path"))?;
         debug!("Loading problem at dir {:?}", base);
 
         let definition: ProblemDefinition = ProblemDefinition::load(path)?;
@@ -49,7 +51,7 @@ impl Persistant for Problem {
         })
     }
 
-    fn save(&self, path: &Path) -> Result<(), String> {
+    fn save(&self, path: &Path) -> AppResult<()> {
         self.definition.save(path)?;
         debug!("Saved definition");
         self.stmt.save(&self.path)?;
