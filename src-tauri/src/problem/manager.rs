@@ -130,3 +130,124 @@ impl Default for ProblemManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{test_support::temp_problem, util::Persistant};
+
+    fn manager_with(problem: Problem) -> ProblemManager {
+        ProblemManager {
+            current: RwLock::new(Some(problem)),
+        }
+    }
+
+    #[test]
+    fn get_current_path_errors_when_no_problem_open() {
+        let manager = ProblemManager::new();
+        assert!(manager.get_current_path().is_err());
+    }
+
+    #[test]
+    fn get_current_path_returns_open_problem_path() {
+        let (_dir, problem) = temp_problem("p");
+        let expected = problem.path.clone();
+        let manager = manager_with(problem);
+
+        assert_eq!(manager.get_current_path().unwrap(), expected);
+    }
+
+    #[test]
+    fn with_current_mut_errors_when_no_problem_open() {
+        let manager = ProblemManager::new();
+        assert!(manager.with_current_mut(|_| {}).is_err());
+    }
+
+    #[test]
+    fn with_current_mut_mutates_and_persists() {
+        let (_dir, problem) = temp_problem("p");
+        let prblm_path = problem.path.join("p.prblm");
+        let manager = manager_with(problem);
+
+        manager
+            .with_current_mut(|p| p.definition.checker = Some("checker.cpp".to_string()))
+            .unwrap();
+
+        let reloaded = Problem::load(&prblm_path).unwrap();
+        assert_eq!(reloaded.definition.checker, Some("checker.cpp".to_string()));
+    }
+
+    #[test]
+    fn set_main_solution_updates_definition() {
+        let (_dir, problem) = temp_problem("p");
+        let manager = manager_with(problem);
+
+        manager.set_main_solution(Some("main.cpp".to_string())).unwrap();
+
+        let curr = manager.current.read().unwrap();
+        assert_eq!(
+            curr.as_ref().unwrap().definition.main_solution,
+            Some("main.cpp".to_string())
+        );
+    }
+
+    #[test]
+    fn sync_main_solution_picks_the_tagged_main() {
+        let (_dir, problem) = temp_problem("p");
+        let manager = manager_with(problem);
+
+        let solutions = vec![
+            SolutionDescription {
+                file_name: "a.cpp".to_string(),
+                tag: SolutionTag::Accepted,
+                author: None,
+                change_time: String::new(),
+            },
+            SolutionDescription {
+                file_name: "b.cpp".to_string(),
+                tag: SolutionTag::Main,
+                author: None,
+                change_time: String::new(),
+            },
+        ];
+        manager.sync_main_solution(&solutions).unwrap();
+
+        let curr = manager.current.read().unwrap();
+        assert_eq!(
+            curr.as_ref().unwrap().definition.main_solution,
+            Some("b.cpp".to_string())
+        );
+    }
+
+    #[test]
+    fn get_current_checker_path_resolves_plain_filename() {
+        let (_dir, mut problem) = temp_problem("p");
+        problem.definition.checker = Some("checker.cpp".to_string());
+        let manager = manager_with(problem);
+
+        let path = manager.get_current_checker_path().unwrap().unwrap();
+        assert_eq!(
+            path,
+            Path::new(ProblemFileType::Checker.directory()).join("checker.cpp")
+        );
+    }
+
+    #[test]
+    fn get_current_checker_path_resolves_default_prefix_by_filename() {
+        let (_dir, mut problem) = temp_problem("p");
+        problem.definition.checker = Some("@default:sample.cpp".to_string());
+        let manager = manager_with(problem);
+
+        let path = manager.get_current_checker_path().unwrap().unwrap();
+        assert_eq!(path.file_name().unwrap(), "sample.cpp");
+    }
+
+    #[test]
+    fn validator_and_main_solution_paths_are_none_when_unset() {
+        let (_dir, problem) = temp_problem("p");
+        let manager = manager_with(problem);
+
+        assert!(manager.get_current_validator_path().unwrap().is_none());
+        assert!(manager.get_main_solution_path().unwrap().is_none());
+    }
+}

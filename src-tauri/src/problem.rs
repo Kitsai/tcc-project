@@ -61,6 +61,28 @@ impl Persistant for Problem {
     }
 }
 
+#[cfg(test)]
+mod problem_tests {
+    use super::*;
+    use crate::test_support::temp_problem;
+
+    #[test]
+    fn problem_round_trips_through_disk() {
+        let (_dir, mut problem) = temp_problem("roundtrip");
+        problem.definition.checker = Some("checker.cpp".to_string());
+        problem.stmt.legend = "Legend text".to_string();
+        problem.save_to_disk().unwrap();
+
+        let prblm_path = problem.path.join("roundtrip.prblm");
+        let loaded = Problem::load(&prblm_path).unwrap();
+
+        assert_eq!(loaded.definition.name, "roundtrip");
+        assert_eq!(loaded.definition.checker, Some("checker.cpp".to_string()));
+        assert_eq!(loaded.stmt.legend, "Legend text");
+        assert_eq!(loaded.path, problem.path);
+    }
+}
+
 mod checker;
 mod definition;
 mod dir;

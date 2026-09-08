@@ -39,3 +39,20 @@ impl CompileService {
         language.compile(relative, project_path, self.runner.as_ref()).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::MockRunner;
+
+    #[tokio::test]
+    async fn compile_delegates_to_the_language_and_never_calls_an_interpreted_runner() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
+
+        service
+            .compile(&ProgrammingLanguage::Python3, Path::new("solution.py"), dir.path())
+            .await
+            .expect("python compile should be a no-op and never touch the runner");
+    }
+}

@@ -316,3 +316,114 @@ impl std::str::FromStr for CheckerVerdict {
         Self::try_from(s.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{temp_problem, MockRunner, RecordingEmitter};
+
+    fn create_dto(id: u16, verdict: &str) -> CheckerTestCreateDto {
+        CheckerTestCreateDto {
+            id,
+            mult: false,
+            input: "in".to_string(),
+            output: "out".to_string(),
+            answer: "ans".to_string(),
+            verdict: verdict.to_string(),
+        }
+    }
+
+    #[test]
+    fn verdict_parses_known_aliases() {
+        assert!(matches!("OK".parse::<CheckerVerdict>(), Ok(CheckerVerdict::Ok)));
+        assert!(matches!("WA".parse::<CheckerVerdict>(), Ok(CheckerVerdict::WrongAnswer)));
+        assert!(matches!(
+            "PE".parse::<CheckerVerdict>(),
+            Ok(CheckerVerdict::PresentationError)
+        ));
+        assert!(matches!("FL".parse::<CheckerVerdict>(), Ok(CheckerVerdict::Crashed)));
+        assert!(matches!("".parse::<CheckerVerdict>(), Ok(CheckerVerdict::None)));
+    }
+
+    #[test]
+    fn verdict_rejects_unknown_values() {
+        assert!("NOT_A_VERDICT".parse::<CheckerVerdict>().is_err());
+    }
+
+    #[test]
+    fn create_single_test_writes_file() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        let tests = CheckerTest::get_all(&problem.path).unwrap();
+        assert_eq!(tests.len(), 1);
+        assert_eq!(tests[0].id, 1);
+    }
+
+    #[test]
+    fn create_rejects_duplicate_id() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        let err = CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap_err();
+        assert!(err.to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn create_mult_splits_batch_and_skips_taken_ids() {
+        let (_dir, problem) = temp_problem("p");
+        // pre-occupy id 2 so the batch below has to skip past it
+        CheckerTest::create(create_dto(2, "OK"), &problem.path).unwrap();
+
+        let dto = CheckerTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b".to_string(),
+            output: "oa===ob".to_string(),
+            answer: "aa===ab".to_string(),
+            verdict: "OK\nWA".to_string(),
+        };
+        CheckerTest::create(dto, &problem.path).unwrap();
+
+        let mut tests = CheckerTest::get_all(&problem.path).unwrap();
+        tests.sort_by_key(|t| t.id);
+        let ids: Vec<u16> = tests.iter().map(|t| t.id).collect();
+        assert_eq!(ids, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn create_mult_rejects_mismatched_lengths() {
+        let (_dir, problem) = temp_problem("p");
+        let dto = CheckerTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b".to_string(),
+            output: "oa".to_string(),
+            answer: "aa===ab".to_string(),
+            verdict: "OK\nWA".to_string(),
+        };
+
+        let err = CheckerTest::create(dto, &problem.path).unwrap_err();
+        assert!(err.to_string().contains("same number of entries"));
+    }
+
+    #[tokio::test]
+    async fn run_all_maps_exit_codes_to_verdicts_and_persists() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::exit_code(1));
+        let emitter = RecordingEmitter::default();
+
+        CheckerTest::run_all(&problem.path, PathBuf::from("checker.py"), emitter.clone(), runner)
+            .await
+            .unwrap();
+
+        let tests = CheckerTest::get_all(&problem.path).unwrap();
+        assert!(matches!(tests[0].actual, CheckerVerdict::WrongAnswer));
+
+        let events = emitter.events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "checker_test_result");
+    }
+}

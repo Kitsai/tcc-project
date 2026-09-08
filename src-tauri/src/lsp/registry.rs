@@ -46,6 +46,74 @@ impl LspRegistry {
     }
 }
 
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+
+    struct FakeServer {
+        language_id: &'static str,
+        extensions: &'static [&'static str],
+    }
+
+    #[async_trait::async_trait]
+    impl LspServer for FakeServer {
+        fn name(&self) -> &str {
+            "fake"
+        }
+
+        fn language_id(&self) -> &str {
+            self.language_id
+        }
+
+        fn file_extensions(&self) -> &[&str] {
+            self.extensions
+        }
+
+        fn binary_name(&self) -> &str {
+            "fake-lsp"
+        }
+    }
+
+    fn registry() -> LspRegistry {
+        let mut registry = LspRegistry {
+            servers: HashMap::new(),
+        };
+        registry.register(Arc::new(FakeServer {
+            language_id: "cpp",
+            extensions: &["cpp", "hpp"],
+        }));
+        registry
+    }
+
+    #[test]
+    fn get_by_language_finds_a_registered_server() {
+        let registry = registry();
+        assert!(registry.get_by_language("cpp").is_some());
+        assert!(registry.get_by_language("python").is_none());
+    }
+
+    #[test]
+    fn get_by_extension_matches_any_declared_extension() {
+        let registry = registry();
+        assert!(registry.get_by_extension("hpp").is_some());
+        assert!(registry.get_by_extension("py").is_none());
+    }
+
+    #[test]
+    fn get_language_id_resolves_through_extension() {
+        let registry = registry();
+        assert_eq!(registry.get_language_id("cpp"), Some("cpp".to_string()));
+        assert_eq!(registry.get_language_id("py"), None);
+    }
+
+    #[test]
+    fn supported_languages_and_get_all_reflect_registrations() {
+        let registry = registry();
+        assert_eq!(registry.supported_languages(), vec!["cpp".to_string()]);
+        assert_eq!(registry.get_all().len(), 1);
+    }
+}
+
 pub struct LspRegistryBuilder {
     servers: Vec<Arc<dyn LspServer>>,
 }

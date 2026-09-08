@@ -34,3 +34,39 @@ impl From<&str> for AppError {
 }
 
 pub type AppResult<T> = Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_display_is_the_inner_message() {
+        let err = AppError::Default("something went wrong".to_string());
+        assert_eq!(err.to_string(), "something went wrong");
+    }
+
+    #[test]
+    fn failed_to_delete_display_includes_path() {
+        let err = AppError::FailedToDelete(PathBuf::from("/tmp/foo.txt"));
+        assert_eq!(err.to_string(), "Failed to delete file /tmp/foo.txt");
+    }
+
+    #[test]
+    fn serializes_as_a_bare_string_not_an_object() {
+        let err = AppError::Default("boom".to_string());
+        let json = serde_json::to_string(&err).unwrap();
+        assert_eq!(json, "\"boom\"");
+    }
+
+    #[test]
+    fn from_string_wraps_as_default() {
+        let err: AppError = "oops".to_string().into();
+        assert!(matches!(err, AppError::Default(msg) if msg == "oops"));
+    }
+
+    #[test]
+    fn from_str_wraps_as_default() {
+        let err: AppError = "oops".into();
+        assert!(matches!(err, AppError::Default(msg) if msg == "oops"));
+    }
+}

@@ -176,6 +176,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_cwd() {
+        let runner = SimpleRunner::default();
+        let dir = tempfile::tempdir().expect("failed to create tempdir");
+
+        let mut request = ExecutionRequest {
+            command: get_base_cmd(),
+            args: get_args("echo hi > marker.txt"),
+            input: String::new(),
+            options: ExecutionOptions {
+                timeout: None,
+                memory_limit: None,
+            },
+            cwd: None,
+        };
+        request.with_cwd(dir.path());
+
+        runner.execute(request).await.expect("Execution failed");
+
+        let marker = dir.path().join("marker.txt");
+        assert!(marker.exists(), "expected marker.txt to be written inside cwd");
+        let content = std::fs::read_to_string(marker).expect("failed to read marker.txt");
+        assert!(content.contains("hi"));
+    }
+
+    #[tokio::test]
     async fn test_timeout() {
         let runner = SimpleRunner::default();
         let script = if cfg!(target_os = "windows") {

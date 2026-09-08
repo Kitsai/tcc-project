@@ -256,3 +256,115 @@ impl SolutionDescription {
         Self::new(file_name).save_solution(problem_path)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::temp_problem;
+
+    #[test]
+    fn create_new_writes_source_and_desc() {
+        let (_dir, problem) = temp_problem("p");
+        SolutionDescription::create_new("main.cpp".to_string(), &problem.path).unwrap();
+
+        assert!(problem.path.join(SOLUTIONS_PATH).join("main.cpp").exists());
+
+        let all = SolutionDescription::load_all(&problem.path).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].file_name, "main.cpp");
+        assert!(matches!(all[0].tag, SolutionTag::Accepted));
+    }
+
+    #[test]
+    fn create_from_existing_copies_content() {
+        let (_dir, problem) = temp_problem("p");
+        let source_dir = tempfile::tempdir().unwrap();
+        let source_file = source_dir.path().join("brute.cpp");
+        std::fs::write(&source_file, "int main(){}").unwrap();
+
+        SolutionDescription::create_from_existing(source_file, &problem.path).unwrap();
+
+        let copied = problem.path.join(SOLUTIONS_PATH).join("brute.cpp");
+        assert_eq!(std::fs::read_to_string(copied).unwrap(), "int main(){}");
+    }
+
+    #[test]
+    fn verify_and_load_creates_desc_for_orphan_source_and_removes_stale_desc() {
+        let (_dir, problem) = temp_problem("p");
+        let solutions_dir = problem.path.join(SOLUTIONS_PATH);
+
+        // orphan source file with no .desc
+        std::fs::write(solutions_dir.join("orphan.cpp"), "").unwrap();
+
+        // stale desc whose source no longer exists
+        let stale = SolutionDescription::new("gone.cpp".to_string());
+        stale.save_solution(&problem.path).unwrap();
+
+        let verified = SolutionDescription::verify_and_load(&problem.path).unwrap();
+
+        assert_eq!(verified.len(), 1);
+        assert_eq!(verified[0].file_name, "orphan.cpp");
+        assert!(matches!(verified[0].tag, SolutionTag::None));
+        assert!(!solutions_dir.join("gone.cpp.desc").exists());
+    }
+
+    #[test]
+    fn verify_and_load_demotes_a_second_main_to_accepted() {
+        let (_dir, problem) = temp_problem("p");
+        let solutions_dir = problem.path.join(SOLUTIONS_PATH);
+
+        std::fs::write(solutions_dir.join("a.cpp"), "").unwrap();
+        std::fs::write(solutions_dir.join("b.cpp"), "").unwrap();
+
+        let mut a = SolutionDescription::new("a.cpp".to_string());
+        a.tag = SolutionTag::Main;
+        a.save_solution(&problem.path).unwrap();
+
+        let mut b = SolutionDescription::new("b.cpp".to_string());
+        b.tag = SolutionTag::Main;
+        b.save_solution(&problem.path).unwrap();
+
+        let verified = SolutionDescription::verify_and_load(&problem.path).unwrap();
+        let mains: Vec<_> = verified
+            .iter()
+            .filter(|d| matches!(d.tag, SolutionTag::Main))
+            .collect();
+        assert_eq!(mains.len(), 1);
+    }
+
+    #[test]
+    fn change_tag_to_main_demotes_previous_main() {
+        let (_dir, problem) = temp_problem("p");
+        SolutionDescription::create_new("a.cpp".to_string(), &problem.path).unwrap();
+        SolutionDescription::create_new("b.cpp".to_string(), &problem.path).unwrap();
+
+        SolutionDescription::change_tag(&problem.path, "a.cpp", SolutionTag::Main).unwrap();
+        let descs = SolutionDescription::change_tag(&problem.path, "b.cpp", SolutionTag::Main).unwrap();
+
+        let a = descs.iter().find(|d| d.file_name == "a.cpp").unwrap();
+        let b = descs.iter().find(|d| d.file_name == "b.cpp").unwrap();
+        assert!(matches!(a.tag, SolutionTag::Accepted));
+        assert!(matches!(b.tag, SolutionTag::Main));
+    }
+
+    #[test]
+    fn change_tag_errors_for_unknown_file() {
+        let (_dir, problem) = temp_problem("p");
+        match SolutionDescription::change_tag(&problem.path, "missing.cpp", SolutionTag::Main) {
+            Err(err) => assert!(err.to_string().contains("not found")),
+            Ok(_) => panic!("expected an error for an unknown solution file"),
+        }
+    }
+
+    #[test]
+    fn delete_solution_removes_source_and_desc() {
+        let (_dir, problem) = temp_problem("p");
+        SolutionDescription::create_new("a.cpp".to_string(), &problem.path).unwrap();
+
+        SolutionDescription::delete_solution(&problem.path, "a.cpp".to_string()).unwrap();
+
+        let solutions_dir = problem.path.join(SOLUTIONS_PATH);
+        assert!(!solutions_dir.join("a.cpp").exists());
+        assert!(!solutions_dir.join("a.cpp.desc").exists());
+    }
+}

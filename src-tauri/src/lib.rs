@@ -15,6 +15,8 @@ pub mod polygon;
 pub mod problem;
 pub mod runner;
 pub mod settings;
+#[cfg(test)]
+pub(crate) mod test_support;
 mod util;
 
 const APP_NAME: &str = "tcc-project";

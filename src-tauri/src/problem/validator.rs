@@ -235,3 +235,105 @@ pub struct ValidatorTestEditDto {
     pub input: String,
     pub verdict: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{temp_problem, MockRunner, RecordingEmitter};
+
+    fn create_dto(id: u16, verdict: &str) -> ValidatorTestCreateDto {
+        ValidatorTestCreateDto {
+            id,
+            mult: false,
+            input: "in".to_string(),
+            verdict: verdict.to_string(),
+        }
+    }
+
+    #[test]
+    fn result_parses_known_values() {
+        assert!(matches!("VALID".parse::<ValidatorTestResult>(), Ok(ValidatorTestResult::Valid)));
+        assert!(matches!(
+            "invalid".parse::<ValidatorTestResult>(),
+            Ok(ValidatorTestResult::Invalid)
+        ));
+        assert!(matches!("".parse::<ValidatorTestResult>(), Ok(ValidatorTestResult::None)));
+    }
+
+    #[test]
+    fn result_rejects_unknown_values() {
+        assert!("MAYBE".parse::<ValidatorTestResult>().is_err());
+    }
+
+    #[test]
+    fn create_single_test_writes_file() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        let tests = ValidatorTest::get_all(&problem.path).unwrap();
+        assert_eq!(tests.len(), 1);
+        assert_eq!(tests[0].id, 1);
+    }
+
+    #[test]
+    fn create_rejects_duplicate_id() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        let err = ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap_err();
+        assert!(err.to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn create_mult_splits_batch_and_skips_taken_ids() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(2, "VALID"), &problem.path).unwrap();
+
+        let dto = ValidatorTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b".to_string(),
+            verdict: "VALID\nINVALID".to_string(),
+        };
+        ValidatorTest::create(dto, &problem.path).unwrap();
+
+        let mut tests = ValidatorTest::get_all(&problem.path).unwrap();
+        tests.sort_by_key(|t| t.id);
+        let ids: Vec<u16> = tests.iter().map(|t| t.id).collect();
+        assert_eq!(ids, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn create_mult_rejects_mismatched_lengths() {
+        let (_dir, problem) = temp_problem("p");
+        let dto = ValidatorTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b".to_string(),
+            verdict: "VALID".to_string(),
+        };
+
+        let err = ValidatorTest::create(dto, &problem.path).unwrap_err();
+        assert!(err.to_string().contains("same number of entries"));
+    }
+
+    #[tokio::test]
+    async fn run_all_maps_exit_codes_to_results_and_persists() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::exit_code(1));
+        let emitter = RecordingEmitter::default();
+
+        ValidatorTest::run_all(&problem.path, PathBuf::from("validator.py"), emitter.clone(), runner)
+            .await
+            .unwrap();
+
+        let tests = ValidatorTest::get_all(&problem.path).unwrap();
+        assert!(matches!(tests[0].actual, ValidatorTestResult::Invalid));
+
+        let events = emitter.events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "validator_test_result");
+    }
+}

@@ -31,3 +31,15 @@ impl AsRef<str> for ProblemDir {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_and_as_ref_agree_for_every_variant() {
+        for dir in [ProblemDir::Files, ProblemDir::Solutions, ProblemDir::Tests] {
+            assert_eq!(dir.to_string(), dir.as_ref());
+        }
+    }
+}

@@ -265,3 +265,136 @@ impl ExecutableSpec {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, SystemTime};
+
+    use super::*;
+    use crate::test_support::MockRunner;
+
+    #[test]
+    fn get_from_extension_maps_known_extensions() {
+        assert!(matches!(
+            ProgrammingLanguage::get_from_extension("cpp"),
+            Some(ProgrammingLanguage::Cpp)
+        ));
+        assert!(matches!(
+            ProgrammingLanguage::get_from_extension("py"),
+            Some(ProgrammingLanguage::Python3)
+        ));
+        assert!(ProgrammingLanguage::get_from_extension("rs").is_none());
+    }
+
+    #[test]
+    fn get_from_path_uses_the_extension() {
+        assert!(matches!(
+            ProgrammingLanguage::get_from_path(Path::new("a/b.cpp")),
+            Some(ProgrammingLanguage::Cpp)
+        ));
+        assert!(ProgrammingLanguage::get_from_path(Path::new("a/b")).is_none());
+    }
+
+    #[test]
+    fn resolve_bare_name_prefers_python_over_cpp() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("gen.py"), "").unwrap();
+        std::fs::write(dir.path().join("gen.cpp"), "").unwrap();
+
+        let (lang, relative) =
+            ProgrammingLanguage::resolve_bare_name(dir.path(), Path::new("gen")).unwrap();
+        assert!(matches!(lang, ProgrammingLanguage::Python3));
+        assert_eq!(relative, PathBuf::from("gen.py"));
+    }
+
+    #[test]
+    fn resolve_bare_name_returns_none_when_neither_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(ProgrammingLanguage::resolve_bare_name(dir.path(), Path::new("missing")).is_none());
+    }
+
+    #[test]
+    fn is_interpreted_matches_language() {
+        assert!(!ProgrammingLanguage::Cpp.is_interpreted());
+        assert!(ProgrammingLanguage::Python3.is_interpreted());
+    }
+
+    #[test]
+    fn needs_recompile_true_when_destination_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("a.cpp");
+        std::fs::write(&source, "x").unwrap();
+        let destination = dir.path().join("bin/a");
+
+        assert!(needs_recompile(&source, &destination).unwrap());
+    }
+
+    #[test]
+    fn needs_recompile_true_when_destination_older() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let destination = dir.path().join("a.bin");
+        std::fs::write(&destination, "old").unwrap();
+        std::fs::File::open(&destination)
+            .unwrap()
+            .set_modified(SystemTime::now() - Duration::from_secs(120))
+            .unwrap();
+
+        let source = dir.path().join("a.cpp");
+        std::fs::write(&source, "new").unwrap();
+
+        assert!(needs_recompile(&source, &destination).unwrap());
+    }
+
+    #[test]
+    fn needs_recompile_false_when_destination_newer() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let source = dir.path().join("a.cpp");
+        std::fs::write(&source, "x").unwrap();
+        std::fs::File::open(&source)
+            .unwrap()
+            .set_modified(SystemTime::now() - Duration::from_secs(120))
+            .unwrap();
+
+        let destination = dir.path().join("a.bin");
+        std::fs::write(&destination, "y").unwrap();
+
+        assert!(!needs_recompile(&source, &destination).unwrap());
+    }
+
+    #[tokio::test]
+    async fn compile_is_a_noop_for_interpreted_languages() {
+        let dir = tempfile::tempdir().unwrap();
+        let runner = MockRunner::unreachable();
+
+        ProgrammingLanguage::Python3
+            .compile(Path::new("solution.py"), dir.path(), &runner)
+            .await
+            .expect("python compile should be a no-op");
+    }
+
+    #[tokio::test]
+    async fn compile_skips_recompilation_when_binary_is_up_to_date() {
+        let dir = tempfile::tempdir().unwrap();
+        let project_path = dir.path();
+        let relative = Path::new("checker.cpp");
+
+        std::fs::write(project_path.join(relative), "int main(){}").unwrap();
+
+        let destination = binary_output_path(relative, project_path);
+        std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        std::fs::write(&destination, "binary").unwrap();
+        std::fs::File::open(&destination)
+            .unwrap()
+            .set_modified(SystemTime::now() + Duration::from_secs(60))
+            .unwrap();
+
+        let runner = MockRunner::unreachable();
+
+        ProgrammingLanguage::Cpp
+            .compile(relative, project_path, &runner)
+            .await
+            .expect("compile should skip without invoking the runner");
+    }
+}

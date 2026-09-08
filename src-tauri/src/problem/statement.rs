@@ -69,3 +69,38 @@ impl Persistant for ProblemStatement {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_trips_through_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("statement")).unwrap();
+
+        let stmt = ProblemStatement {
+            name: "Problem Name".to_string(),
+            legend: "Legend".to_string(),
+            input: "Input spec".to_string(),
+            output: "Output spec".to_string(),
+            notes: "Notes".to_string(),
+            tutorial: "Tutorial".to_string(),
+        };
+        stmt.save(dir.path()).unwrap();
+
+        let loaded = ProblemStatement::load(dir.path()).unwrap();
+        assert_eq!(loaded.name, stmt.name);
+        assert_eq!(loaded.legend, stmt.legend);
+        assert_eq!(loaded.input, stmt.input);
+        assert_eq!(loaded.output, stmt.output);
+        assert_eq!(loaded.notes, stmt.notes);
+        assert_eq!(loaded.tutorial, stmt.tutorial);
+    }
+
+    #[test]
+    fn load_fails_when_statement_dir_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(ProblemStatement::load(dir.path()).is_err());
+    }
+}

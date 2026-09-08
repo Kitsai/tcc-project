@@ -120,3 +120,61 @@ pub fn now() -> String {
         now.year(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn next_available_id_is_one_for_an_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(next_available_id(dir.path()), 1);
+    }
+
+    #[test]
+    fn next_available_id_fills_a_gap() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("01"), "").unwrap();
+        std::fs::write(dir.path().join("03"), "").unwrap();
+        assert_eq!(next_available_id(dir.path()), 2);
+    }
+
+    #[test]
+    fn next_available_id_continues_past_contiguous_ids() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("01"), "").unwrap();
+        std::fs::write(dir.path().join("02"), "").unwrap();
+        assert_eq!(next_available_id(dir.path()), 3);
+    }
+
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    struct Fixture {
+        name: String,
+        value: u32,
+    }
+
+    impl SerdePersistant for Fixture {}
+
+    #[test]
+    fn persistant_round_trips_through_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fixture.json");
+
+        let original = Fixture {
+            name: "hello".to_string(),
+            value: 42,
+        };
+        original.save(&path).unwrap();
+
+        let loaded = Fixture::load(&path).unwrap();
+        assert_eq!(original, loaded);
+    }
+
+    #[test]
+    fn persistant_load_fails_for_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing.json");
+
+        assert!(Fixture::load(&path).is_err());
+    }
+}

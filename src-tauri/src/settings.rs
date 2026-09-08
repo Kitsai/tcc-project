@@ -100,3 +100,41 @@ impl AppSettings {
 pub struct AppSettingsDto {
     max_concurrency: u8,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn concurrency_settings_round_trip_through_u8() {
+        assert!(matches!(ConcurrencySettings::from(0), ConcurrencySettings::Auto));
+        assert!(matches!(ConcurrencySettings::from(4), ConcurrencySettings::Selected(4)));
+
+        let auto: u8 = ConcurrencySettings::Auto.into();
+        assert_eq!(auto, 0);
+        let selected: u8 = ConcurrencySettings::Selected(8).into();
+        assert_eq!(selected, 8);
+    }
+
+    #[test]
+    fn update_and_to_dto_round_trip_without_touching_disk() {
+        let settings = AppSettings::default();
+        settings
+            .update(&AppSettingsDto { max_concurrency: 6 })
+            .unwrap();
+
+        let dto = settings.to_dto().unwrap();
+        assert_eq!(dto.max_concurrency, 6);
+    }
+
+    #[test]
+    fn update_with_zero_maps_to_auto() {
+        let settings = AppSettings::default();
+        settings
+            .update(&AppSettingsDto { max_concurrency: 0 })
+            .unwrap();
+
+        let dto = settings.to_dto().unwrap();
+        assert_eq!(dto.max_concurrency, 0);
+    }
+}
