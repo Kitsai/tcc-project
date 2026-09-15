@@ -7,39 +7,33 @@
         <UHeader title="Importar pacote do Polygon" to="" :toggle="false" />
 
         <div v-if="warnings.length > 0" class="flex flex-col gap-4 p-6">
-          <UAlert
-            v-for="(warning, i) in warnings"
-            :key="i"
-            color="warning"
-            variant="subtle"
-            :description="warning"
-          />
+          <UAlert v-for="(warning, i) in warnings" :key="i" color="warning" variant="subtle" :description="warning" />
           <UButton label="Continuar" class="self-end" @click="goToProblem" />
         </div>
 
-        <UForm v-else @submit="onSubmit" class="flex flex-col gap-4 justify-center items-center py-20">
-          <UFormField label="Pasta do Pacote Polygon">
-            <UButton v-if="!sourceFolder" label="Selecionar Pasta" color="secondary" type="button" @click="onSelectSource" />
-            <LazyUInput v-else :value="sourceFolder" @click="onSelectSource" />
-          </UFormField>
+        <UForm v-else @submit="onSubmit" class="flex flex-col items-center py-20">
+          <div class="flex flex-col gap-4 items-start">
+            <UFormField label="Pasta do Pacote Polygon">
+              <UButton v-if="!sourceFolder" label="Selecionar Pasta" color="secondary" type="button"
+                @click="onSelectSource" />
+              <LazyUInput v-else :value="sourceFolder" @click="onSelectSource" />
+            </UFormField>
 
-          <UFormField label="Nome do Problema">
-            <UInput type="text" v-model="problemName" />
-          </UFormField>
+            <UFormField label="Nome do Problema">
+              <UInput type="text" v-model="problemName" />
+            </UFormField>
 
-          <UFormField label="Local de Destino">
-            <UButton v-if="!destFolder" label="Local do Projeto" color="secondary" type="button" @click="onSelectDest" />
-            <LazyUInput v-else :value="destFolder" @click="onSelectDest" />
-          </UFormField>
+            <UFormField label="Local de Destino">
+              <UButton v-if="!destFolder" label="Local do Projeto" color="secondary" type="button"
+                @click="onSelectDest" />
+              <LazyUInput v-else :value="destFolder" @click="onSelectDest" />
+            </UFormField>
 
-          <UButton
-            class="w-fit text-lg px-5"
-            type="submit"
-            :disabled="!sourceFolder || !destFolder || problemName.length === 0"
-            :loading="problems.loading"
-          >
-            Importar
-          </UButton>
+            <UButton class="w-fit text-lg px-5 mt-6" type="submit"
+              :disabled="!sourceFolder || !destFolder || problemName.length === 0" :loading="problems.loading">
+              Importar
+            </UButton>
+          </div>
         </UForm>
       </div>
     </template>

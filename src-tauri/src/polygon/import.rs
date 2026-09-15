@@ -6,10 +6,11 @@ use crate::{
     compile_service::CompileService,
     constants::{CHECKER_TESTS_PATH, VALIDATOR_TESTS_PATH},
     error::{AppError, AppResult},
-    polygon::xml::{self, PolygonProblem},
+    polygon::xml::{self, PolygonMainTest, PolygonProblem},
     problem::{
         create_problem_dirs, CheckerTest, CheckerVerdict, Problem, ProblemFileType,
-        ProgrammingLanguage, SolutionDescription, ValidatorTest, ValidatorTestResult,
+        ProgrammingLanguage, SolutionDescription, TestDefinition, TestType, ValidatorTest,
+        ValidatorTestResult,
     },
     util::{Persistant, ResultExt},
 };
@@ -104,6 +105,7 @@ pub async fn import_polygon_package(
 
     import_checker_tests(source, dest_path, &parsed.checker_verdicts, &mut warnings)?;
     import_validator_tests(source, dest_path, &parsed.validator_verdicts, &mut warnings)?;
+    import_main_tests(source, dest_path, &parsed.main_tests, &mut warnings)?;
 
     problem.save_to_disk()?;
 
@@ -269,6 +271,53 @@ fn import_validator_tests(
     Ok(())
 }
 
+/// Imports the judge test set. Each Polygon `<test>` entry becomes one
+/// `TestDefinition`: a literal `Manual` test for `method="manual"` entries
+/// (content read from `tests/%02d` at that entry's document position), or a
+/// `Script` test for `method="generated"` entries (content = the `cmd`
+/// string verbatim — no execution happens here; generation stays lazy,
+/// exactly like a hand-authored Script test). Entries that share an
+/// identical `cmd` (Polygon's `from-file` batch-generation pattern) collapse
+/// into a single row, keeping the first occurrence's sample/description.
+fn import_main_tests(
+    source: &Path,
+    dest_path: &Path,
+    tests: &[PolygonMainTest],
+    warnings: &mut Vec<String>,
+) -> AppResult<()> {
+    let tests_dir = source.join("tests");
+    let mut seen_cmds: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut next_id: u16 = 1;
+
+    for (i, test) in tests.iter().enumerate() {
+        let (test_type, content) = match &test.cmd {
+            None => {
+                let stem = format!("{:02}", i + 1);
+                match fs::read_to_string(tests_dir.join(&stem)) {
+                    Ok(content) => (TestType::Manual, content),
+                    Err(_) => {
+                        warnings.push(format!("Teste manual {stem} não encontrado no pacote, ignorado"));
+                        continue;
+                    }
+                }
+            }
+            Some(cmd) => {
+                if !seen_cmds.insert(cmd.as_str()) {
+                    continue;
+                }
+                (TestType::Script, cmd.clone())
+            }
+        };
+
+        let description = test.description.clone().unwrap_or_default();
+        TestDefinition::new(next_id, test_type, &content, test.sample, &description)
+            .save(&TestDefinition::path(dest_path, next_id))?;
+        next_id += 1;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -286,6 +335,7 @@ mod tests {
         fs::create_dir_all(dir.join("statement-sections/english")).unwrap();
         fs::create_dir_all(dir.join("files/tests/checker-tests")).unwrap();
         fs::create_dir_all(dir.join("files/tests/validator-tests")).unwrap();
+        fs::create_dir_all(dir.join("tests")).unwrap();
 
         fs::write(dir.join("files/checker.cpp"), "int main(){return 0;}").unwrap();
         fs::write(dir.join("files/validator.cpp"), "int main(){return 0;}").unwrap();
@@ -305,6 +355,7 @@ mod tests {
         fs::write(dir.join("files/tests/checker-tests/01.o"), "out").unwrap();
         fs::write(dir.join("files/tests/checker-tests/01.a"), "ans").unwrap();
         fs::write(dir.join("files/tests/validator-tests/01"), "5\n").unwrap();
+        fs::write(dir.join("tests/01"), "manual content").unwrap();
 
         let xml = r#"<problem>
             <names><name language="english" value="Test Problem"/></names>
@@ -313,6 +364,11 @@ mod tests {
                 <executable><source path="files/checker.cpp"/></executable>
                 <executable><source path="files/validator.cpp"/></executable>
             </executables></files>
+            <judging><testset name="tests"><tests>
+                <test method="manual" sample="true" description="ex"/>
+                <test cmd="gen 1 2" method="generated"/>
+                <test cmd="gen 1 2" method="generated"/>
+            </tests></testset></judging>
             <assets>
                 <checker><source path="files/checker.cpp"/>
                     <testset><tests><test verdict="ok"/></tests></testset>
@@ -353,6 +409,40 @@ mod tests {
         let solutions = SolutionDescription::load_all(&dest_path).unwrap();
         assert_eq!(solutions.len(), 1);
         assert!(matches!(solutions[0].tag, SolutionTag::Main));
+
+        let tests = TestDefinition::get_all(&dest_path).unwrap();
+        assert_eq!(tests.len(), 2);
+
+        let manual = tests.iter().find(|t| matches!(t.test_type, TestType::Manual)).unwrap();
+        assert_eq!(manual.content, "manual content");
+        assert!(manual.example);
+        assert_eq!(manual.description, "ex");
+
+        let script = tests.iter().find(|t| matches!(t.test_type, TestType::Script)).unwrap();
+        assert_eq!(script.content, "gen 1 2");
+    }
+
+    #[tokio::test]
+    async fn warns_and_skips_a_manual_test_missing_from_the_package() {
+        let source_dir = tempfile::tempdir().unwrap();
+        build_package(source_dir.path());
+        fs::remove_file(source_dir.path().join("tests/01")).unwrap();
+
+        let dest_dir = tempfile::tempdir().unwrap();
+        let dest_path = dest_dir.path().join("imported");
+
+        let runner: Arc<dyn Runner> = Arc::new(MockRunner::exit_code(0));
+        let compile_service = CompileService::new(runner);
+
+        let result = import_polygon_package(source_dir.path(), &dest_path, &compile_service)
+            .await
+            .unwrap();
+
+        assert!(result.warnings.iter().any(|w| w.contains("Teste manual 01")));
+
+        let tests = TestDefinition::get_all(&dest_path).unwrap();
+        assert_eq!(tests.len(), 1);
+        assert!(matches!(tests[0].test_type, TestType::Script));
     }
 
     #[tokio::test]

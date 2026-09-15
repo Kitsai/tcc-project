@@ -26,6 +26,20 @@ pub struct PolygonProblem {
     pub checker_verdicts: Vec<CheckerVerdict>,
     /// Document order = validator regression test id 1..N.
     pub validator_verdicts: Vec<ValidatorTestResult>,
+    /// The judge test set, in document order.
+    pub main_tests: Vec<PolygonMainTest>,
+}
+
+/// One entry from `<judging><testset><tests><test .../></tests></testset></judging>`.
+/// `cmd: None` means `method="manual"` — the test's content is a literal
+/// file already in the package at `tests/%02d` (document position,
+/// 1-indexed). `cmd: Some(...)` means `method="generated"` — the cmd string
+/// is already in this app's own `<generator> <args...>` Script-content
+/// format verbatim.
+pub struct PolygonMainTest {
+    pub cmd: Option<String>,
+    pub sample: bool,
+    pub description: Option<String>,
 }
 
 pub fn parse_problem_xml(xml: &str) -> AppResult<PolygonProblem> {
@@ -119,6 +133,22 @@ pub fn parse_problem_xml(xml: &str) -> AppResult<PolygonProblem> {
         })
         .unwrap_or_default();
 
+    let main_tests: Vec<PolygonMainTest> = find_child(&root, "judging")
+        .and_then(|j| find_child(&j, "testset"))
+        .and_then(|ts| find_child(&ts, "tests"))
+        .map(|tests| {
+            tests
+                .children()
+                .filter(|c| c.has_tag_name("test"))
+                .map(|t| PolygonMainTest {
+                    cmd: t.attribute("cmd").map(str::to_string),
+                    sample: t.attribute("sample") == Some("true"),
+                    description: t.attribute("description").map(str::to_string),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     Ok(PolygonProblem {
         display_name,
         checker_source,
@@ -129,6 +159,7 @@ pub fn parse_problem_xml(xml: &str) -> AppResult<PolygonProblem> {
         statement_languages,
         checker_verdicts,
         validator_verdicts,
+        main_tests,
     })
 }
 
@@ -204,6 +235,12 @@ mod tests {
             .find(|(p, _)| p == &PathBuf::from("solutions/solutionErrada.cpp"))
             .unwrap();
         assert!(matches!(wrong.1, Some(SolutionTag::WrongAnswer)));
+
+        assert_eq!(parsed.main_tests.len(), 100);
+        assert!(parsed.main_tests.iter().all(|t| t.cmd.as_deref() == Some("generator")));
+        assert!(parsed.main_tests[0].sample);
+        assert!(parsed.main_tests[1].sample);
+        assert!(!parsed.main_tests[2].sample);
     }
 
     #[test]
@@ -224,6 +261,15 @@ mod tests {
             .find(|(p, _)| p == &PathBuf::from("solutions/TleC.cpp"))
             .unwrap();
         assert!(matches!(tle_or_accepted.1, Some(SolutionTag::TimeLimitExceededOrAccepted)));
+
+        assert_eq!(parsed.main_tests.len(), 37);
+        assert!(parsed.main_tests[0].cmd.is_none());
+        assert!(parsed.main_tests[0].sample);
+        assert_eq!(parsed.main_tests[0].description.as_deref(), Some("example test"));
+        assert_eq!(
+            parsed.main_tests[1].cmd.as_deref(),
+            Some("gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 1 -max-a 10 -min-b 1 -max-b 10")
+        );
     }
 
     #[test]
