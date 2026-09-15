@@ -9,9 +9,7 @@ use crate::{
     util::ResultExt,
 };
 
-use super::{
-    files::get_default_checkers_path, Problem, ProblemFileType, SolutionDescription, SolutionTag,
-};
+use super::{files::get_default_checkers_path, Problem, ProblemFileType, SolutionDescription};
 
 pub struct ProblemManager {
     pub current: RwLock<Option<Problem>>,
@@ -46,11 +44,7 @@ impl ProblemManager {
     }
 
     pub fn sync_main_solution(&self, solutions: &[SolutionDescription]) -> AppResult<()> {
-        let main_file = solutions
-            .iter()
-            .find(|s| matches!(s.tag, SolutionTag::Main))
-            .map(|s| s.file_name.clone());
-        self.set_main_solution(main_file)
+        self.set_main_solution(SolutionDescription::main_solution_file_name(solutions))
     }
 
     /// Returns the validator's source path, relative to the problem's root directory.
@@ -134,7 +128,7 @@ impl Default for ProblemManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_support::temp_problem, util::Persistant};
+    use crate::{problem::SolutionTag, test_support::temp_problem, util::Persistant};
 
     fn manager_with(problem: Problem) -> ProblemManager {
         ProblemManager {

@@ -94,6 +94,7 @@ pub fn run() {
             commands::problems::unselect_problem_file,
             commands::problems::tag_generator_file,
             commands::problems::untag_generator_file,
+            commands::polygon::import_polygon_problem,
             commands::checker::get_checker_tests,
             commands::checker::get_next_checker_test_id,
             commands::checker::checker_test_exists,

@@ -241,6 +241,14 @@ impl SolutionDescription {
         Self::new(file_name).save_solution(problem_path)
     }
 
+    /// Picks the file name of the solution tagged `Main`, if any.
+    pub fn main_solution_file_name(solutions: &[SolutionDescription]) -> Option<String> {
+        solutions
+            .iter()
+            .find(|s| matches!(s.tag, SolutionTag::Main))
+            .map(|s| s.file_name.clone())
+    }
+
     pub fn create_from_existing(full_path: PathBuf, problem_path: &Path) -> AppResult<()> {
         let file_name = full_path
             .file_name()

@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<problem revision="12" short-name="extreme-sub" url="https://polygon.codeforces.com/p47sHdB/kitsai/extreme-sub">
+    <names>
+        <name language="english" value="Extreme Subtraction"/>
+    </names>
+    <statements latex-pdf-mode="obsolete">
+        <statement charset="UTF-8" language="english" mathjax="true" path="statements/english/problem.tex" type="application/x-tex"/>
+        <statement charset="UTF-8" language="english" mathjax="true" path="statements/.html/english/problem.html" type="text/html"/>
+        <statement language="english" path="statements/.pdf/english/problem.pdf" type="application/pdf"/>
+    </statements>
+    <judging cpu-name="Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz" cpu-speed="3600" input-file="" output-file="" run-count="1">
+        <testset name="tests">
+            <time-limit>2000</time-limit>
+            <memory-limit>268435456</memory-limit>
+            <test-count>37</test-count>
+            <input-path-pattern>tests/%02d</input-path-pattern>
+            <answer-path-pattern>tests/%02d.a</answer-path-pattern>
+            <tests>
+                <test description="example test" method="manual" sample="true"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 1 -max-a 10 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 1 -max-a 10 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 1 -max-a 10 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 100 -max-a 1000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 100 -max-a 1000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 100 -max-a 1000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 100000 -max-a 500000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 100000 -max-a 500000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 10000 -sum-n 30000 -yes-count 5000 -min-a 100000 -max-a 500000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 1 -max-a 10 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 1 -max-a 10 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 1 -max-a 10 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 100 -max-a 1000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 100 -max-a 1000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 100 -max-a 1000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 100000 -max-a 500000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 100000 -max-a 500000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 100 -sum-n 30000 -yes-count 50 -min-a 100000 -max-a 500000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 1 -max-a 10 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 1 -max-a 10 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 1 -max-a 10 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 100 -max-a 1000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 100 -max-a 1000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 100 -max-a 1000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 100000 -max-a 500000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 100000 -max-a 500000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 0 -min-a 100000 -max-a 500000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 1 -max-a 10 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 1 -max-a 10 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 1 -max-a 10 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 100 -max-a 1000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 100 -max-a 1000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 100 -max-a 1000 -min-b 100000 -max-b 500000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 100000 -max-a 500000 -min-b 1 -max-b 10" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 100000 -max-a 500000 -min-b 100 -max-b 1000" method="generated"/>
+                <test cmd="gen-v1 -test-count 1 -sum-n 30000 -yes-count 1 -min-a 100000 -max-a 500000 -min-b 100000 -max-b 500000" method="generated"/>
+            </tests>
+        </testset>
+    </judging>
+    <files>
+        <resources>
+            <file path="files/olymp.sty"/>
+            <file path="files/problem.tex"/>
+            <file path="files/statements.ftl"/>
+            <file path="files/testlib.h" type="h.g++"/>
+        </resources>
+        <executables>
+            <executable>
+                <source path="files/checker.cpp" type="cpp.gcc14-64-msys2-g++23"/>
+                <binary path="files/checker.exe" type="exe.win32"/>
+            </executable>
+            <executable>
+                <source path="files/gen-totally-random.cpp" type="cpp.gcc14-64-msys2-g++23"/>
+                <binary path="files/gen-totally-random.exe" type="exe.win32"/>
+            </executable>
+            <executable>
+                <source path="files/gen-v1.cpp" type="cpp.gcc14-64-msys2-g++23"/>
+                <binary path="files/gen-v1.exe" type="exe.win32"/>
+            </executable>
+            <executable>
+                <source path="files/validator.cpp" type="cpp.g++17"/>
+                <binary path="files/validator.exe" type="exe.win32"/>
+            </executable>
+        </executables>
+    </files>
+    <assets>
+        <checker type="testlib">
+            <source path="files/checker.cpp" type="cpp.gcc14-64-msys2-g++23"/>
+            <binary path="check.exe" type="exe.win32"/>
+            <copy path="check.cpp" type="cpp.gcc14-64-msys2-g++23"/>
+            <testset>
+                <test-count>8</test-count>
+                <input-path-pattern>files/tests/checker-tests/%02d</input-path-pattern>
+                <output-path-pattern>files/tests/checker-tests/%02d.o</output-path-pattern>
+                <answer-path-pattern>files/tests/checker-tests/%02d.a</answer-path-pattern>
+                <tests>
+                    <test verdict="ok"/>
+                    <test verdict="presentation-error"/>
+                    <test verdict="crashed"/>
+                    <test verdict="presentation-error"/>
+                    <test verdict="presentation-error"/>
+                    <test verdict="crashed"/>
+                    <test verdict="wrong-answer"/>
+                    <test verdict="wrong-answer"/>
+                </tests>
+            </testset>
+        </checker>
+        <validators>
+            <validator>
+                <source path="files/validator.cpp" type="cpp.g++17"/>
+                <binary path="files/validator.exe" type="exe.win32"/>
+                <testset>
+                    <test-count>10</test-count>
+                    <input-path-pattern>files/tests/validator-tests/%02d</input-path-pattern>
+                    <tests>
+                        <test verdict="invalid"/>
+                        <test verdict="invalid"/>
+                        <test verdict="invalid"/>
+                        <test verdict="invalid"/>
+                        <test verdict="invalid"/>
+                        <test verdict="invalid"/>
+                        <test verdict="valid"/>
+                        <test verdict="invalid"/>
+                        <test verdict="valid"/>
+                        <test verdict="valid"/>
+                    </tests>
+                </testset>
+            </validator>
+        </validators>
+        <solutions>
+            <solution tag="time-limit-exceeded-or-accepted">
+                <source path="solutions/TleC.cpp" type="cpp.g++17"/>
+                <binary path="solutions/TleC.exe" type="exe.win32"/>
+            </solution>
+            <solution tag="time-limit-exceeded-or-memory-limit-exceeded">
+                <source path="solutions/brute-force.cpp" type="cpp.g++17"/>
+                <binary path="solutions/brute-force.exe" type="exe.win32"/>
+            </solution>
+            <solution tag="memory-limit-exceeded">
+                <source path="solutions/mle.cpp" type="cpp.g++17"/>
+                <binary path="solutions/mle.exe" type="exe.win32"/>
+            </solution>
+            <solution tag="accepted">
+                <source path="solutions/py_solution.py" type="python.3"/>
+                <binary path="solutions/py_solution.pys3" type="pythonx.3"/>
+            </solution>
+            <solution tag="main">
+                <source path="solutions/solution.cpp" type="cpp.g++17"/>
+                <binary path="solutions/solution.exe" type="exe.win32"/>
+            </solution>
+            <solution tag="time-limit-exceeded">
+                <source path="solutions/tle.cpp" type="cpp.g++17"/>
+                <binary path="solutions/tle.exe" type="exe.win32"/>
+            </solution>
+            <solution tag="wrong-answer">
+                <source path="solutions/wa.cpp" type="cpp.g++17"/>
+                <binary path="solutions/wa.exe" type="exe.win32"/>
+            </solution>
+        </solutions>
+    </assets>
+    <properties>
+        <property name="tests-wellformed" value="true"/>
+    </properties>
+    <stresses>
+        <stress-count>2</stress-count>
+        <stress-path-pattern>stresses/%03d</stress-path-pattern>
+        <list>
+            <stress index="2" path="stresses/002"/>
+            <stress index="1" path="stresses/001"/>
+        </list>
+    </stresses>
+    <tags>
+        <tag value="array"/>
+        <tag value="greedy"/>
+    </tags>
+</problem>

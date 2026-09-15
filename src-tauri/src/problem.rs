@@ -31,6 +31,23 @@ impl Problem {
     }
 }
 
+/// Creates the standard problem directory skeleton (`files/`, `solutions/`,
+/// `tests/{validator,checker,main}/`, `statement/`) under `base_path`.
+/// Shared by `create_problem` and the Polygon package importer.
+pub(crate) fn create_problem_dirs(base_path: &Path) -> AppResult<()> {
+    use crate::util::ResultExt;
+
+    std::fs::create_dir(base_path.join("files")).err_to_string()?;
+    std::fs::create_dir(base_path.join("solutions")).err_to_string()?;
+    std::fs::create_dir(base_path.join("tests")).err_to_string()?;
+    std::fs::create_dir(base_path.join("tests/validator")).err_to_string()?;
+    std::fs::create_dir(base_path.join("tests/checker")).err_to_string()?;
+    std::fs::create_dir(base_path.join("tests/main")).err_to_string()?;
+    std::fs::create_dir(base_path.join("statement")).err_to_string()?;
+
+    Ok(())
+}
+
 impl Persistant for Problem {
     fn load(path: &Path) -> AppResult<Self> {
         let base = path

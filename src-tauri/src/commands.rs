@@ -3,6 +3,7 @@ pub mod compile;
 pub mod dev;
 pub mod files;
 pub mod lsp;
+pub mod polygon;
 pub mod problems;
 pub mod settings;
 pub mod solution;

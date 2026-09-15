@@ -3,6 +3,7 @@
     <LanguageAlert />
     <ProblemLoadButton />
     <ProblemCreateModal />
+    <ProblemImportModal />
   </UContainer>
 </template>
 

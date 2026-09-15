@@ -40,7 +40,7 @@ pub fn create_problem(
 
     let problem = Problem::create(&name, path.clone());
 
-    create_file_dirs(&path)?;
+    crate::problem::create_problem_dirs(&path)?;
 
     problem.save_to_disk()?;
 
@@ -51,18 +51,6 @@ pub fn create_problem(
     }
 
     Ok(problem)
-}
-
-fn create_file_dirs(base_path: &Path) -> AppResult<()> {
-    fs::create_dir(base_path.join("files")).err_to_string()?;
-    fs::create_dir(base_path.join("solutions")).err_to_string()?;
-    fs::create_dir(base_path.join("tests")).err_to_string()?;
-    fs::create_dir(base_path.join("tests/validator")).err_to_string()?;
-    fs::create_dir(base_path.join("tests/checker")).err_to_string()?;
-    fs::create_dir(base_path.join("tests/main")).err_to_string()?;
-    fs::create_dir(base_path.join("statement")).err_to_string()?;
-
-    Ok(())
 }
 
 #[tauri::command]
