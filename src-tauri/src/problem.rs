@@ -45,6 +45,8 @@ pub(crate) fn create_problem_dirs(base_path: &Path) -> AppResult<()> {
     std::fs::create_dir(base_path.join("tests/main")).err_to_string()?;
     std::fs::create_dir(base_path.join("statement")).err_to_string()?;
 
+    std::fs::write(base_path.join(".gitignore"), "bin/\ntests/export/\n").err_to_string()?;
+
     Ok(())
 }
 
@@ -103,6 +105,7 @@ mod problem_tests {
 mod checker;
 mod definition;
 mod dir;
+mod export;
 mod files;
 mod manager;
 mod registration;

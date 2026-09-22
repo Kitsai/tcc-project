@@ -13,6 +13,8 @@ pub const VALIDATOR_TESTS_PATH: &str = "tests/validator";
 pub const CHECKER_TESTS_PATH: &str = "tests/checker";
 pub const TESTS_PATH: &str = "tests/main";
 pub const SOLUTIONS_PATH: &str = "solutions";
+pub const EXPORT_TESTS_PATH: &str = "tests/export";
+pub const EXPORT_MANIFEST_FILENAME: &str = "manifest.json";
 
 /// COMMANDS
 pub const PYTHON_INTERPRETER: &str = "python3";

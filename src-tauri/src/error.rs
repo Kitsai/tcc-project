@@ -5,10 +5,46 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("Failed to delete file {0}")]
-    FailedToDelete(PathBuf),
+    #[error("Failed to {operation} {path:?}: {source}")]
+    Fs {
+        operation: FsOperation,
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
     #[error("{0}")]
     Default(String),
+}
+
+/// The filesystem operation an `AppError::Fs` failed during, so the message
+/// (and, later, any retry/atomic-write logic) can tell "couldn't read" apart
+/// from "couldn't write" apart from "couldn't delete".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FsOperation {
+    Read,
+    Write,
+    Create,
+    CreateDir,
+    Delete,
+    RemoveDir,
+    Rename,
+    Copy,
+}
+
+impl std::fmt::Display for FsOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Read => "read",
+            Self::Write => "write",
+            Self::Create => "create",
+            Self::CreateDir => "create directory",
+            Self::Delete => "delete",
+            Self::RemoveDir => "remove directory",
+            Self::Rename => "rename",
+            Self::Copy => "copy",
+        };
+        write!(f, "{s}")
+    }
 }
 
 /// Serializes as its Display string rather than the default externally-tagged
@@ -46,9 +82,18 @@ mod tests {
     }
 
     #[test]
-    fn failed_to_delete_display_includes_path() {
-        let err = AppError::FailedToDelete(PathBuf::from("/tmp/foo.txt"));
-        assert_eq!(err.to_string(), "Failed to delete file /tmp/foo.txt");
+    fn fs_error_display_includes_operation_path_and_source() {
+        let source = std::io::Error::new(std::io::ErrorKind::NotFound, "no such file or directory");
+        let err = AppError::Fs {
+            operation: FsOperation::Delete,
+            path: PathBuf::from("/tmp/foo.txt"),
+            source,
+        };
+
+        let message = err.to_string();
+        assert!(message.contains("Failed to delete"));
+        assert!(message.contains("/tmp/foo.txt"));
+        assert!(message.contains("no such file or directory"));
     }
 
     #[test]
