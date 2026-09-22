@@ -28,6 +28,9 @@ const navItems = [
   },
   {
     label: 'Solution Files', to: { path: '/problem/solution' }
+  },
+  {
+    label: 'Export', to: { path: '/problem/export' }
   }
 ];
 </script>
