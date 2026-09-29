@@ -63,6 +63,19 @@ impl ExecutionRequest {
         self
     }
 
+    /// Like `with_input`, but first normalizes `input` for piping to a judge
+    /// program's stdin: trims surrounding whitespace, collapses to `\n` line
+    /// endings, ensures exactly one trailing newline, then converts to the
+    /// platform's line endings.
+    pub fn with_normalized_input(&mut self, input: &str) -> &mut Self {
+        let mut normalized = input.trim().replace("\r\n", "\n");
+        normalized.push('\n');
+        if cfg!(windows) {
+            normalized = normalized.replace('\n', "\r\n");
+        }
+        self.with_input(&normalized)
+    }
+
     pub fn with_cwd(&mut self, path: &Path) -> &mut Self {
         self.cwd = Some(path.to_owned());
 
@@ -134,3 +147,39 @@ impl std::error::Error for ExecutionError {}
 mod simple_runner;
 
 pub use simple_runner::SimpleRunner;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_normalized_input_trims_and_adds_single_trailing_newline() {
+        let mut request = ExecutionRequest::new("cat");
+        request.with_normalized_input("  \n  3\n1 2 3  \n\n");
+
+        let expected = if cfg!(windows) { "3\r\n1 2 3\r\n" } else { "3\n1 2 3\n" };
+        assert_eq!(request.input, expected);
+    }
+
+    #[test]
+    fn with_normalized_input_normalizes_existing_crlf() {
+        let mut request = ExecutionRequest::new("cat");
+        request.with_normalized_input("3\r\n1 2 3\r\n");
+
+        let expected = if cfg!(windows) { "3\r\n1 2 3\r\n" } else { "3\n1 2 3\n" };
+        assert_eq!(request.input, expected);
+    }
+
+    #[test]
+    fn with_normalized_input_adds_newline_to_input_missing_one() {
+        let mut request = ExecutionRequest::new("cat");
+        request.with_normalized_input("no trailing newline");
+
+        let expected = if cfg!(windows) {
+            "no trailing newline\r\n"
+        } else {
+            "no trailing newline\n"
+        };
+        assert_eq!(request.input, expected);
+    }
+}

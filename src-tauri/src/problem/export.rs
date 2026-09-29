@@ -8,11 +8,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     compile_service::CompileService,
     constants::{EXPORT_MANIFEST_FILENAME, EXPORT_TESTS_PATH},
-    error::{AppResult, FsOperation},
+    error::{AppError, AppResult, FsOperation},
     fs::FsResultExt,
-    problem::{PreviewOutcome, TestDefinition},
+    problem::{PreviewOutcome, ProgrammingLanguage, TestDefinition},
     runner::Runner,
-    util::{Persistant, SerdePersistant},
+    util::{Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -142,6 +142,70 @@ fn save_one_file(
     })
 }
 
+pub async fn validate_export_tests(
+    problem_path: &Path,
+    validator_path: &Path,
+    runner: Arc<dyn Runner>,
+) -> AppResult<u16> {
+    let manifest = ExportManifest::load(&get_export_manifest_path(problem_path))?;
+    let export_dir = get_export_dir(problem_path);
+
+    let language = ProgrammingLanguage::get_from_path(validator_path).ok_or_else(|| {
+        AppError::InvalidLanguage {
+            path: validator_path.to_owned(),
+        }
+    })?;
+    let request_template = language
+        .resolve(validator_path, problem_path)
+        .into_request();
+
+    log::debug!(
+        "[validate_export_tests] problem_path={:?} validator_path={:?} test_count={}",
+        problem_path,
+        validator_path,
+        manifest.tests.len()
+    );
+
+    for test in &manifest.tests {
+        let runner = runner.clone();
+        let mut request = request_template.clone();
+
+        let path = export_dir.join(format!("{:02}", test.final_id));
+        let input = std::fs::read_to_string(&path).fs_context(FsOperation::Read, &path)?;
+
+        request.with_normalized_input(&input);
+
+        let result = runner.execute(request).await.err_to_string()?;
+
+        if result.exit_code != 0 {
+            let comment = if !result.stderr.trim().is_empty() {
+                result.stderr.trim()
+            } else {
+                result.stdout.trim()
+            };
+
+            log::debug!(
+                "[validate_export_tests] test final_id={} source_test_id={} failed: {}",
+                test.final_id,
+                test.source_test_id,
+                comment
+            );
+
+            return Err(AppError::from(format!(
+                "Test {} (from definition #{}) failed validation: {}",
+                test.final_id, test.source_test_id, comment
+            )));
+        }
+    }
+
+    log::debug!(
+        "[validate_export_tests] done, {} test(s) validated",
+        manifest.tests.len()
+    );
+
+    Ok(manifest.tests.len() as u16)
+}
+
 pub fn get_export_dir(problem_path: &Path) -> PathBuf {
     problem_path.join(EXPORT_TESTS_PATH)
 }
@@ -157,6 +221,7 @@ mod tests {
     use super::*;
     use crate::{
         problem::{TestDefinitionCreateDto, TestType},
+        runner::ExecutionInfo,
         test_support::{temp_problem, MockRunner},
     };
 
@@ -345,5 +410,69 @@ mod tests {
             manifest.tests[0].source_test_id
         );
         assert_eq!(loaded.tests[0].final_id, manifest.tests[0].final_id);
+    }
+
+    #[tokio::test]
+    async fn validate_export_tests_returns_count_when_validator_accepts_all() {
+        let (_dir, problem) = temp_problem("p");
+        create_manual(&problem.path, 1, "one");
+        create_manual(&problem.path, 2, "two");
+
+        let gen_runner = unreachable_runner();
+        let compile_service = CompileService::new(gen_runner.clone());
+        generate_export_tests(&problem.path, gen_runner, &compile_service)
+            .await
+            .unwrap();
+
+        let runner: Arc<dyn Runner> = Arc::new(MockRunner::exit_code(0));
+        let validator_path = PathBuf::from("validator.py");
+
+        let count = validate_export_tests(&problem.path, &validator_path, runner)
+            .await
+            .unwrap();
+
+        assert_eq!(count, 2);
+    }
+
+    #[tokio::test]
+    async fn validate_export_tests_fails_fast_on_first_invalid_test() {
+        let (_dir, problem) = temp_problem("p");
+        create_manual(&problem.path, 1, "good");
+        create_manual(&problem.path, 2, "bad");
+        create_manual(&problem.path, 3, "good");
+
+        let gen_runner = unreachable_runner();
+        let compile_service = CompileService::new(gen_runner.clone());
+        generate_export_tests(&problem.path, gen_runner, &compile_service)
+            .await
+            .unwrap();
+
+        let calls = Arc::new(std::sync::Mutex::new(0));
+        let calls_clone = calls.clone();
+        let runner: Arc<dyn Runner> = Arc::new(MockRunner::new(move |request| {
+            *calls_clone.lock().unwrap() += 1;
+            let exit_code = if request.input.contains("bad") { 1 } else { 0 };
+            Ok(ExecutionInfo {
+                stdout: String::new(),
+                stderr: "bad input rejected".to_string(),
+                execution_time: std::time::Duration::default(),
+                exit_code,
+            })
+        }));
+        let validator_path = PathBuf::from("validator.py");
+
+        let err = validate_export_tests(&problem.path, &validator_path, runner)
+            .await
+            .unwrap_err();
+
+        let message = err.to_string();
+        assert!(message.contains("Test 2"));
+        assert!(message.contains("definition #2"));
+        assert!(message.contains("bad input rejected"));
+        assert_eq!(
+            *calls.lock().unwrap(),
+            2,
+            "should stop after the failing test, never reaching test 3"
+        );
     }
 }

@@ -101,7 +101,7 @@ pub async fn output_from_main(
     let mut request = language
         .resolve(&solution_path, &problem_path)
         .into_request();
-    request.with_input(&input);
+    request.with_normalized_input(&input);
 
     runner.execute(request).await.err_to_string()?.to_result()
 }

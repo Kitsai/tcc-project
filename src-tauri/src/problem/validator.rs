@@ -159,12 +159,7 @@ impl ValidatorTest {
             let mut request = request_template.clone();
 
             let handle = tokio::spawn(async move {
-                let mut input = test.input.trim().replace("\r\n", "\n");
-                input.push('\n');
-                if cfg!(windows) {
-                    input = input.replace('\n', "\r\n");
-                }
-                request.with_input(&input);
+                request.with_normalized_input(&test.input);
 
                 log::debug!("[run_all] running test id={}", test.id);
 
