@@ -135,4 +135,6 @@ pub use validator::{
     ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,
 };
 
+pub use export::{generate_export_tests, ExportManifest, ExportManifestEntry};
+
 use crate::util::Persistant;

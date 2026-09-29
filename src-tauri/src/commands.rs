@@ -1,6 +1,7 @@
 pub mod checker;
 pub mod compile;
 pub mod dev;
+pub mod export;
 pub mod files;
 pub mod lsp;
 pub mod polygon;

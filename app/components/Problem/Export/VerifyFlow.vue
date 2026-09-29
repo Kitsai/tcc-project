@@ -22,9 +22,11 @@
 
 <script setup lang="ts">
 import type { VerificationStage, VerificationStageKey } from "~/types/export/verification";
+import type { ExportManifest } from "~/types/export/manifest";
 
 type RunMode = "verify" | "export";
 
+const { invoke } = useTauri();
 const { throwError, throwSuccess } = useCustomToast();
 
 const activeRun = ref<RunMode | null>(null);
@@ -103,11 +105,11 @@ function resetStages() {
   }
 }
 
-// TODO: wire these up to real Tauri commands once the backend exists.
 async function runGenerateStage() {
-  throw new Error("Not implemented yet");
+  await invoke<ExportManifest>("generate_export_tests");
 }
 
+// TODO: wire these up to real Tauri commands once the backend exists.
 async function runValidateStage() {
   throw new Error("Not implemented yet");
 }

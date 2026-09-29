@@ -87,6 +87,7 @@ pub fn run() {
         .manage(runner)
         .manage(compile_service)
         .invoke_handler(tauri::generate_handler![
+            commands::export::generate_export_tests,
             commands::problems::create_problem,
             commands::problems::load_problem,
             commands::problems::save_statement,
