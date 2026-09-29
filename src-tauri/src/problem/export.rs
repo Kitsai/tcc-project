@@ -101,6 +101,17 @@ pub fn prepare_export_dir(problem_path: &Path) -> AppResult<PathBuf> {
     Ok(dir)
 }
 
+/// A `Script` definition's generator may batch out many files in one run
+/// (testlib's `startTest` convention). If that definition is marked as an
+/// example, only the first `EXAMPLES_PER_BATCH` expanded files are treated
+/// as examples in the final package — not the whole batch. Matches what a
+/// problem-setter would actually want shown in the statement (a couple of
+/// samples), not every generated file. `cabo-carente-4`'s own generator
+/// hardcodes exactly 2 sample tests, which is where this default comes from,
+/// though it's a per-problem choice, not a platform rule — hence a named
+/// constant rather than a hardcoded number inline.
+const EXAMPLES_PER_BATCH: usize = 2;
+
 async fn resolve_into_export_dir(
     test: &TestDefinition,
     export_dir: &Path,
@@ -118,8 +129,9 @@ async fn resolve_into_export_dir(
 
     let mut collect = Vec::new();
 
-    for content in contents {
-        collect.push(save_one_file(export_dir, content, next_id, test)?);
+    for (index, content) in contents.into_iter().enumerate() {
+        let example = test.example && index < EXAMPLES_PER_BATCH;
+        collect.push(save_one_file(export_dir, content, next_id, test, example)?);
         next_id += 1;
     }
 
@@ -139,6 +151,7 @@ fn save_one_file(
     content: String,
     id: u16,
     test: &TestDefinition,
+    example: bool,
 ) -> AppResult<ExportManifestEntry> {
     let path = export_test_path(export_dir, id);
     std::fs::write(&path, content).fs_context(FsOperation::Write, &path)?;
@@ -146,7 +159,7 @@ fn save_one_file(
     Ok(ExportManifestEntry {
         final_id: id,
         source_test_id: test.id,
-        example: test.example,
+        example,
     })
 }
 
@@ -821,5 +834,77 @@ mod tests {
             2,
             "should stop after the failing test, never reaching test 3"
         );
+    }
+
+    #[tokio::test]
+    async fn generate_export_tests_caps_examples_within_a_multi_file_batch() {
+        let (_dir, problem) = temp_problem("p");
+
+        // A Script test whose generator produces 4 files in one run
+        // (testlib's startTest multi-file convention), marked as an example.
+        TestDefinition::create(
+            TestDefinitionCreateDto {
+                id: 1,
+                test_type: TestType::Script,
+                content: "gen.py".to_string(),
+                example: true,
+                description: String::new(),
+            },
+            &problem.path,
+        )
+        .unwrap();
+
+        let runner: Arc<dyn Runner> = Arc::new(MockRunner::new(|request| {
+            let cwd = request.cwd.as_ref().expect("generator should run with a cwd");
+            for (i, content) in ["a", "b", "c", "d"].iter().enumerate() {
+                std::fs::write(cwd.join((i + 1).to_string()), content).unwrap();
+            }
+            Ok(ExecutionInfo {
+                stdout: String::new(),
+                stderr: String::new(),
+                execution_time: std::time::Duration::default(),
+                exit_code: 0,
+            })
+        }));
+        let compile_service = CompileService::new(runner.clone());
+
+        let manifest = generate_export_tests(&problem.path, runner, &compile_service)
+            .await
+            .unwrap();
+
+        assert_eq!(manifest.tests.len(), 4);
+        let example_flags: Vec<bool> = manifest.tests.iter().map(|e| e.example).collect();
+        assert_eq!(
+            example_flags,
+            vec![true, true, false, false],
+            "only the first EXAMPLES_PER_BATCH files of the batch should be examples"
+        );
+    }
+
+    #[tokio::test]
+    async fn generate_export_tests_marks_a_single_outcome_example_test_as_example() {
+        let (_dir, problem) = temp_problem("p");
+
+        TestDefinition::create(
+            TestDefinitionCreateDto {
+                id: 1,
+                test_type: TestType::Manual,
+                content: "content".to_string(),
+                example: true,
+                description: String::new(),
+            },
+            &problem.path,
+        )
+        .unwrap();
+
+        let runner = unreachable_runner();
+        let compile_service = CompileService::new(runner.clone());
+
+        let manifest = generate_export_tests(&problem.path, runner, &compile_service)
+            .await
+            .unwrap();
+
+        assert_eq!(manifest.tests.len(), 1);
+        assert!(manifest.tests[0].example);
     }
 }
