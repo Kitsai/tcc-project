@@ -113,15 +113,15 @@ async function runValidateStage() {
   await invoke<number>("validate_export_tests");
 }
 
-// TODO: wire these up to real Tauri commands once the backend exists.
 async function runSolveStage() {
-  throw new Error("Not implemented yet");
+  await invoke<number>("solve_export_tests");
 }
 
 async function runCheckStage() {
-  throw new Error("Not implemented yet");
+  await invoke<number>("check_export_tests");
 }
 
+// TODO: wire this up to a real Tauri command once the backend exists.
 async function runExportStage() {
   throw new Error("Not implemented yet");
 }
