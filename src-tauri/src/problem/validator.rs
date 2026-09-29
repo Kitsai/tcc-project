@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{LANGUAGE_INVALID_ERR, MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
+    constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
     error::{AppError, AppResult},
     problem::ProgrammingLanguage,
     runner::Runner,
@@ -137,7 +137,7 @@ impl ValidatorTest {
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
         let language = ProgrammingLanguage::get_from_path(&validator_path)
-            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+            .ok_or_else(|| AppError::InvalidLanguage { path: validator_path.clone() })?;
         let request_template = language
             .resolve(&validator_path, problem_path)
             .into_request();

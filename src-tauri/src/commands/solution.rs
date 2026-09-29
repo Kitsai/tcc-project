@@ -4,8 +4,7 @@ use tauri::State;
 
 use crate::{
     compile_service::CompileService,
-    constants::LANGUAGE_INVALID_ERR,
-    error::AppResult,
+    error::{AppError, AppResult},
     problem::{ProblemManager, ProgrammingLanguage, SolutionDescription, SolutionTag},
     runner::Runner,
     util::ResultExt,
@@ -90,7 +89,7 @@ pub async fn output_from_main(
         .ok_or_else(|| "No main solution set for this problem".to_string())?;
 
     let language = ProgrammingLanguage::get_from_path(&solution_path)
-        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+        .ok_or_else(|| AppError::InvalidLanguage { path: solution_path.clone() })?;
 
     {
         let _guard = compile_service.lock().await;

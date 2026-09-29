@@ -12,6 +12,10 @@ pub enum AppError {
         #[source]
         source: std::io::Error,
     },
+    #[error("{path:?} is not a recognized programming language file")]
+    InvalidLanguage { path: PathBuf },
+    #[error("No problem is open")]
+    NoProblemOpen,
     #[error("{0}")]
     Default(String),
 }
@@ -94,6 +98,19 @@ mod tests {
         assert!(message.contains("Failed to delete"));
         assert!(message.contains("/tmp/foo.txt"));
         assert!(message.contains("no such file or directory"));
+    }
+
+    #[test]
+    fn invalid_language_display_includes_path() {
+        let err = AppError::InvalidLanguage {
+            path: PathBuf::from("files/notes.txt"),
+        };
+        assert!(err.to_string().contains("files/notes.txt"));
+    }
+
+    #[test]
+    fn no_problem_open_display_is_stable() {
+        assert_eq!(AppError::NoProblemOpen.to_string(), "No problem is open");
     }
 
     #[test]

@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{CHECKER_TESTS_PATH, LANGUAGE_INVALID_ERR, MULT_SEPARATOR},
+    constants::{CHECKER_TESTS_PATH, MULT_SEPARATOR},
     error::{AppError, AppResult},
     problem::ProgrammingLanguage,
     runner::Runner,
@@ -154,7 +154,7 @@ impl CheckerTest {
         let tests_path = problem_path.join(CHECKER_TESTS_PATH);
 
         let language = ProgrammingLanguage::get_from_path(&checker_path)
-            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+            .ok_or_else(|| AppError::InvalidLanguage { path: checker_path.clone() })?;
         let request_template = language
             .resolve(&checker_path, problem_path)
             .into_request();

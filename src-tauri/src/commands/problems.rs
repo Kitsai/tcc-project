@@ -9,7 +9,6 @@ use tauri::{webview::cookie::time::UtcDateTime, State};
 
 use crate::{
     compile_service::CompileService,
-    constants::{LANGUAGE_INVALID_ERR, NO_PRBLM_ERR},
     error::{AppError, AppResult},
     problem::{
         get_default_checkers_path, Problem, ProblemFileType, ProblemManager, ProblemStatement,
@@ -79,7 +78,8 @@ fn validate_source_file(problem_path: &Path, relative: &Path) -> AppResult<Progr
         return Err(AppError::from(format!("File does not exist: {:?}", relative)));
     }
 
-    ProgrammingLanguage::get_from_path(relative).ok_or_else(|| AppError::from(LANGUAGE_INVALID_ERR))
+    ProgrammingLanguage::get_from_path(relative)
+        .ok_or_else(|| AppError::InvalidLanguage { path: relative.to_owned() })
 }
 
 fn verify_path(path: &Path) -> AppResult<()> {
@@ -196,7 +196,7 @@ pub async fn select_default_checker(
     let problem_path = state.get_current_path()?;
 
     let language = ProgrammingLanguage::get_from_path(&checker_path)
-        .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+        .ok_or_else(|| AppError::InvalidLanguage { path: checker_path.clone() })?;
 
     // Held through the persist below so a concurrent run_checker_tests call
     // can never read this selection mid-update (see CompileService doc comment).
@@ -210,6 +210,6 @@ pub async fn select_default_checker(
         problem.definition.checker = Some(format!("@default:{}", name));
         problem.save_to_disk()
     } else {
-        Err(AppError::from(NO_PRBLM_ERR))
+        Err(AppError::NoProblemOpen)
     }
 }

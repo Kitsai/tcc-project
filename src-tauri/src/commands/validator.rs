@@ -4,7 +4,7 @@ use tauri::{AppHandle, State};
 
 use crate::{
     compile_service::CompileService,
-    constants::{LANGUAGE_INVALID_ERR, VALIDATOR_TESTS_PATH},
+    constants::VALIDATOR_TESTS_PATH,
     error::{AppError, AppResult},
     problem::{
         ProblemManager, ProgrammingLanguage, ValidatorTest, ValidatorTestCreateDto,
@@ -101,7 +101,7 @@ pub async fn run_validator_tests(
         );
 
         let language = ProgrammingLanguage::get_from_path(&validator_path)
-            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+            .ok_or_else(|| AppError::InvalidLanguage { path: validator_path.clone() })?;
         compile_service.compile(&language, &validator_path, &problem_path).await?;
 
         validator_path

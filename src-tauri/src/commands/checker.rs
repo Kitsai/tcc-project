@@ -4,7 +4,7 @@ use tauri::{AppHandle, State};
 
 use crate::{
     compile_service::CompileService,
-    constants::{CHECKER_TESTS_PATH, LANGUAGE_INVALID_ERR},
+    constants::CHECKER_TESTS_PATH,
     error::{AppError, AppResult},
     problem::{CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, ProblemManager, ProgrammingLanguage},
     runner::Runner,
@@ -98,7 +98,7 @@ pub async fn run_checker_tests(
         );
 
         let language = ProgrammingLanguage::get_from_path(&checker_path)
-            .ok_or_else(|| LANGUAGE_INVALID_ERR.to_string())?;
+            .ok_or_else(|| AppError::InvalidLanguage { path: checker_path.clone() })?;
 
         // Always attempted; compile() itself skips the actual compiler
         // invocation when the binary is already up to date.

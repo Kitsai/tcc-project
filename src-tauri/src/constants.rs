@@ -19,7 +19,3 @@ pub const EXPORT_MANIFEST_FILENAME: &str = "manifest.json";
 /// COMMANDS
 pub const PYTHON_INTERPRETER: &str = "python3";
 pub const CPP_COMPILER: &str = "g++";
-
-/// ERROR MESSAGES
-pub const NO_PRBLM_ERR: &str = "No problem is open";
-pub const LANGUAGE_INVALID_ERR: &str = "Programming language not valid";

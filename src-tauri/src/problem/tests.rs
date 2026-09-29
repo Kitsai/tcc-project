@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     compile_service::CompileService,
-    constants::{TESTS_PATH, LANGUAGE_INVALID_ERR},
+    constants::TESTS_PATH,
     error::{AppError, AppResult},
     fs,
     problem::{ProblemFileType, ProgrammingLanguage},
@@ -162,7 +162,7 @@ impl TestDefinition {
         let (language, generator_relative) = match ProgrammingLanguage::get_from_path(&generator_relative) {
             Some(language) => (language, generator_relative),
             None => ProgrammingLanguage::resolve_bare_name(problem_path, &generator_relative)
-                .ok_or_else(|| AppError::from(LANGUAGE_INVALID_ERR))?,
+                .ok_or_else(|| AppError::InvalidLanguage { path: generator_relative.clone() })?,
         };
 
         Ok((language, generator_relative, args))

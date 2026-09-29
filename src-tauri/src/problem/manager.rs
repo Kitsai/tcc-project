@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::{
-    constants::NO_PRBLM_ERR,
     error::{AppError, AppResult},
     util::ResultExt,
 };
@@ -28,7 +27,7 @@ impl ProblemManager {
         if let Some(problem) = &*curr {
             Ok(problem.path.clone())
         } else {
-            Err(AppError::from(NO_PRBLM_ERR))
+            Err(AppError::NoProblemOpen)
         }
     }
 
@@ -58,7 +57,7 @@ impl ProblemManager {
                 .as_ref()
                 .map(|v| Path::new(ProblemFileType::Validator.directory()).join(v)))
         } else {
-            Err(AppError::from(NO_PRBLM_ERR))
+            Err(AppError::NoProblemOpen)
         }
     }
 
@@ -74,7 +73,7 @@ impl ProblemManager {
                 .as_ref()
                 .map(|m| Path::new(ProblemFileType::Solution.directory()).join(m)))
         } else {
-            Err(AppError::from(NO_PRBLM_ERR))
+            Err(AppError::NoProblemOpen)
         }
     }
 
@@ -95,7 +94,7 @@ impl ProblemManager {
                 }
             }))
         } else {
-            Err(AppError::from(NO_PRBLM_ERR))
+            Err(AppError::NoProblemOpen)
         }
     }
 
@@ -114,7 +113,7 @@ impl ProblemManager {
             problem.save_to_disk()?;
             Ok(())
         } else {
-            Err(AppError::from(NO_PRBLM_ERR))
+            Err(AppError::NoProblemOpen)
         }
     }
 }
