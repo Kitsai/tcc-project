@@ -1,0 +1,3 @@
+# The MOJ judge runs these on Linux: a CRLF shebang (`#!/bin/bash\r`) fails there.
+*.sh text eol=lf
+src-tauri/resources/moj/* text eol=lf

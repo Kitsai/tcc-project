@@ -32,7 +32,9 @@ use crate::{
 /// Verbatim copy of MOJ's `scripts/compare.sh` stub
 /// (cd-moj/mojtools `testlib/compare-stub.sh`). It only points at the
 /// checker bridge that lives on the judge, so it must not be edited. It is
-/// never executed by this app, only shipped inside the archive.
+/// never executed by this app, only shipped inside the archive. A Windows
+/// checkout may turn it into CRLF (`#!/bin/bash\r` makes the judge fail to
+/// run it), so it is always written through `to_lf`.
 const COMPARE_STUB: &str = include_str!("../../../resources/moj/compare-stub.sh");
 
 const DEFAULT_CONF: &str = "TLMOD[calibrafactor]=1.35\nULIMITS[-u]=10000\nALLOWPARALLELTEST=y\n";
@@ -124,8 +126,12 @@ fn render_tags(tags: &[String]) -> String {
         .collect()
 }
 
+fn to_lf(text: &str) -> String {
+    text.replace("\r\n", "\n")
+}
+
 fn normalize(text: &str) -> String {
-    text.replace("\r\n", "\n").trim().to_string()
+    to_lf(text).trim().to_string()
 }
 
 fn write_statement(
@@ -325,7 +331,7 @@ fn write_checker(problem: &Problem, out_dir: &Path, report: &mut MojExportReport
     }
 
     copy_file(&source, &out_dir.join("scripts/checker.cpp"))?;
-    write_file(&out_dir.join("scripts/compare.sh"), COMPARE_STUB)?;
+    write_file(&out_dir.join("scripts/compare.sh"), to_lf(COMPARE_STUB))?;
     report.custom_checker = true;
 
     Ok(())
@@ -606,9 +612,24 @@ mod tests {
         let (out, report) = built(&problem);
 
         assert_eq!(read(out.path().join("scripts/checker.cpp")), "// checker");
-        assert_eq!(read(out.path().join("scripts/compare.sh")), COMPARE_STUB);
+        assert_eq!(
+            read(out.path().join("scripts/compare.sh")),
+            to_lf(COMPARE_STUB)
+        );
         assert!(COMPARE_STUB.starts_with("#!/bin/bash"));
         assert!(report.custom_checker);
+    }
+
+    #[test]
+    fn shipped_stub_never_has_crlf() {
+        assert_eq!(to_lf("#!/bin/bash\r\nset -u\r\n"), "#!/bin/bash\nset -u\n");
+
+        let (_dir, mut problem) = exported_problem();
+        fs::write(problem.path.join("files/my.cpp"), "// checker").unwrap();
+        problem.definition.checker = Some("my.cpp".into());
+        let (out, _) = built(&problem);
+
+        assert!(!read(out.path().join("scripts/compare.sh")).contains('\r'));
     }
 
     #[test]
