@@ -19,8 +19,8 @@ use serde::Serialize;
 
 use super::{export_answer_path, export_test_path, get_export_dir, get_export_manifest_path};
 use crate::{
-    constants::SOLUTIONS_PATH,
-    error::{AppError, AppResult, FsOperation},
+    constants::{DEFAULT_AUTHOR, SOLUTIONS_PATH},
+    error::{AppResult, FsOperation},
     fs::FsResultExt,
     problem::{
         get_default_checkers_path, ExportManifest, Problem, ProblemFileType, SolutionDescription,
@@ -56,7 +56,7 @@ pub fn build_moj_package(problem: &Problem, out_dir: &Path) -> AppResult<MojExpo
         .as_deref()
         .map(str::trim)
         .filter(|a| !a.is_empty())
-        .ok_or_else(|| AppError::from("MOJ requires an author: set one before exporting"))?;
+        .unwrap_or(DEFAULT_AUTHOR);
     write_file(&out_dir.join("author"), format!("{author}\n"))?;
     write_file(&out_dir.join("tags"), render_tags(&problem.definition.tags))?;
     write_file(&out_dir.join("conf"), DEFAULT_CONF)?;
@@ -482,13 +482,18 @@ mod tests {
     }
 
     #[test]
-    fn missing_author_is_an_error() {
+    fn missing_or_blank_author_falls_back_to_the_default() {
         let (_dir, mut problem) = exported_problem();
-        problem.definition.author = Some("   ".into());
 
-        let out = tempfile::tempdir().unwrap();
-        let err = build_moj_package(&problem, out.path()).unwrap_err();
-        assert!(err.to_string().contains("author"));
+        for author in [None, Some("   ".to_string())] {
+            problem.definition.author = author;
+            let (out, _) = built(&problem);
+
+            assert_eq!(
+                read(out.path().join("author")),
+                format!("{DEFAULT_AUTHOR}\n")
+            );
+        }
     }
 
     #[test]

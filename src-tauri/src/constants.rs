@@ -16,6 +16,10 @@ pub const SOLUTIONS_PATH: &str = "solutions";
 pub const EXPORT_TESTS_PATH: &str = "tests/export";
 pub const EXPORT_MANIFEST_FILENAME: &str = "manifest.json";
 
+/// EXPORT
+/// Author written to the MOJ package when the problem has none set.
+pub const DEFAULT_AUTHOR: &str = "Ballooner";
+
 /// COMMANDS
 pub const PYTHON_INTERPRETER: &str = "python3";
 pub const CPP_COMPILER: &str = "g++";
