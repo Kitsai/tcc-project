@@ -44,6 +44,9 @@ importers:
       '@tiptap/extension-mathematics':
         specifier: ^3.22.4
         version: 3.22.4(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))(@tiptap/pm@3.22.4)(katex@0.16.45)
+      '@tiptap/markdown':
+        specifier: ^3.22.4
+        version: 3.22.4(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))(@tiptap/pm@3.22.4)
       '@tiptap/starter-kit':
         specifier: ^3.22.4
         version: 3.22.4

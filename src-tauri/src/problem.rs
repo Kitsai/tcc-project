@@ -136,8 +136,8 @@ pub use validator::{
 };
 
 pub use export::{
-    check_export_tests, generate_export_tests, solve_export_tests, validate_export_tests,
-    ExportManifest, ExportManifestEntry,
+    check_export_tests, export_moj_package, generate_export_tests, solve_export_tests,
+    validate_export_tests, ExportManifest, ExportManifestEntry, MojExportReport,
 };
 
 use crate::util::Persistant;

@@ -22,6 +22,7 @@ export default defineNuxtConfig({
         "@tiptap/vue-3",
         "@tiptap/starter-kit",
         "@tiptap/extension-mathematics",
+        "@tiptap/markdown",
         "@tauri-apps/plugin-fs",
         "@tiptap/core",
         "@tauri-apps/plugin-clipboard-manager",

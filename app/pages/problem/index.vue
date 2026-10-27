@@ -5,23 +5,23 @@
         class="border border-primary-200 dark:border-primary-800 rounded-md bg-slate-50 dark:bg-slate-950" />
     </UFormField>
     <UFormField label="Legend:" name="legend">
-      <TexEditor v-model="state.legend"
+      <MarkdownEditor v-model="state.legend"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
     <UFormField label="Input format:" name="input">
-      <TexEditor v-model="state.input"
+      <MarkdownEditor v-model="state.input"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
     <UFormField label="Output format:" name="output">
-      <TexEditor v-model="state.output"
+      <MarkdownEditor v-model="state.output"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
     <UFormField label="Notes:" name="notes">
-      <TexEditor v-model="state.notes"
+      <MarkdownEditor v-model="state.notes"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
     <UFormField label="Tutorial:" name="tutorial">
-      <TexEditor v-model="state.tutorial"
+      <MarkdownEditor v-model="state.tutorial"
         class="border border-primary-200 w-full min-h-40 bg-slate-50 dark:bg-slate-950" />
     </UFormField>
 

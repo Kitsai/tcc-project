@@ -5,8 +5,9 @@ use tauri::State;
 use crate::{
     compile_service::CompileService,
     error::{AppError, AppResult},
-    problem::{self, ExportManifest, ProblemManager, ProgrammingLanguage},
+    problem::{self, ExportManifest, MojExportReport, ProblemManager, ProgrammingLanguage},
     runner::Runner,
+    util::ResultExt,
 };
 
 #[tauri::command]
@@ -92,4 +93,26 @@ pub async fn check_export_tests(
     };
 
     problem::check_export_tests(&problem_path, &checker_path, runner.inner().clone()).await
+}
+
+/// Packs the current problem as a MOJ package at `dest_path`. A non-empty
+/// `author` is persisted to the problem first (MOJ requires one).
+#[tauri::command]
+pub fn export_moj_package(
+    problem_manager: State<'_, ProblemManager>,
+    dest_path: String,
+    author: Option<String>,
+) -> AppResult<MojExportReport> {
+    if let Some(author) = author.filter(|a| !a.trim().is_empty()) {
+        problem_manager.with_current_mut(|p| p.definition.author = Some(author))?;
+    }
+
+    let problem = problem_manager
+        .current
+        .read()
+        .err_to_string()?
+        .clone()
+        .ok_or(AppError::NoProblemOpen)?;
+
+    problem::export_moj_package(&problem, std::path::Path::new(&dest_path))
 }

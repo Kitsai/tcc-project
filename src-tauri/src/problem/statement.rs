@@ -31,17 +31,41 @@ impl ProblemStatement {
     }
 }
 
+/// Statement fragments, in the order they are saved. Each is stored as a
+/// Markdown file (`<field>.md`) holding the TipTap Markdown of that section.
+const FIELDS: [&str; 6] = ["name", "legend", "input", "output", "notes", "tutorial"];
+
+/// Reads `<field>.md`, falling back to the legacy `<field>.tex` that older
+/// projects were saved with (their content is already Markdown-compatible text).
+fn read_fragment(statement_dir: &std::path::Path, field: &str) -> AppResult<String> {
+    let md = statement_dir.join(format!("{field}.md"));
+    if md.exists() {
+        return Ok(fs::read_to_string(md).err_to_string()?);
+    }
+    Ok(fs::read_to_string(statement_dir.join(format!("{field}.tex"))).err_to_string()?)
+}
+
 impl Persistant for ProblemStatement {
     fn save(&self, base_path: &std::path::Path) -> AppResult<()> {
         let statement_dir = base_path.join("statement");
-        debug!("Creating tex files at {:?}", statement_dir);
+        debug!("Creating markdown files at {:?}", statement_dir);
 
-        fs::write(statement_dir.join("name.tex"), &self.name).err_to_string()?;
-        fs::write(statement_dir.join("legend.tex"), &self.legend).err_to_string()?;
-        fs::write(statement_dir.join("input.tex"), &self.input).err_to_string()?;
-        fs::write(statement_dir.join("output.tex"), &self.output).err_to_string()?;
-        fs::write(statement_dir.join("notes.tex"), &self.notes).err_to_string()?;
-        fs::write(statement_dir.join("tutorial.tex"), &self.tutorial).err_to_string()?;
+        let values = [
+            &self.name,
+            &self.legend,
+            &self.input,
+            &self.output,
+            &self.notes,
+            &self.tutorial,
+        ];
+        for (field, value) in FIELDS.iter().zip(values) {
+            fs::write(statement_dir.join(format!("{field}.md")), value).err_to_string()?;
+            // Migration: once the .md exists, the legacy .tex is stale.
+            let legacy = statement_dir.join(format!("{field}.tex"));
+            if legacy.exists() {
+                fs::remove_file(legacy).err_to_string()?;
+            }
+        }
 
         debug!("Files created");
 
@@ -51,13 +75,13 @@ impl Persistant for ProblemStatement {
     fn load(base_path: &std::path::Path) -> AppResult<Self> {
         let statement_dir = base_path.join("statement");
 
-        let name = fs::read_to_string(statement_dir.join("name.tex")).err_to_string()?;
-        let legend = fs::read_to_string(statement_dir.join("legend.tex")).err_to_string()?;
+        let name = read_fragment(&statement_dir, "name")?;
+        let legend = read_fragment(&statement_dir, "legend")?;
         debug!("Loaded legend with content {}", legend);
-        let input = fs::read_to_string(statement_dir.join("input.tex")).err_to_string()?;
-        let output = fs::read_to_string(statement_dir.join("output.tex")).err_to_string()?;
-        let notes = fs::read_to_string(statement_dir.join("notes.tex")).err_to_string()?;
-        let tutorial = fs::read_to_string(statement_dir.join("tutorial.tex")).err_to_string()?;
+        let input = read_fragment(&statement_dir, "input")?;
+        let output = read_fragment(&statement_dir, "output")?;
+        let notes = read_fragment(&statement_dir, "notes")?;
+        let tutorial = read_fragment(&statement_dir, "tutorial")?;
 
         Ok(ProblemStatement {
             name,
@@ -102,5 +126,49 @@ mod tests {
     fn load_fails_when_statement_dir_is_missing() {
         let dir = tempfile::tempdir().unwrap();
         assert!(ProblemStatement::load(dir.path()).is_err());
+    }
+
+    #[test]
+    fn saves_markdown_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("statement")).unwrap();
+        ProblemStatement::new("P").save(dir.path()).unwrap();
+
+        for field in FIELDS {
+            assert!(dir.path().join(format!("statement/{field}.md")).exists());
+            assert!(!dir.path().join(format!("statement/{field}.tex")).exists());
+        }
+    }
+
+    #[test]
+    fn loads_legacy_tex_and_migrates_on_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let sdir = dir.path().join("statement");
+        std::fs::create_dir_all(&sdir).unwrap();
+        for field in FIELDS {
+            std::fs::write(sdir.join(format!("{field}.tex")), format!("old {field}")).unwrap();
+        }
+
+        let loaded = ProblemStatement::load(dir.path()).unwrap();
+        assert_eq!(loaded.legend, "old legend");
+
+        loaded.save(dir.path()).unwrap();
+        for field in FIELDS {
+            assert!(sdir.join(format!("{field}.md")).exists());
+            assert!(!sdir.join(format!("{field}.tex")).exists());
+        }
+        assert_eq!(ProblemStatement::load(dir.path()).unwrap().notes, "old notes");
+    }
+
+    #[test]
+    fn md_takes_precedence_over_legacy_tex() {
+        let dir = tempfile::tempdir().unwrap();
+        let sdir = dir.path().join("statement");
+        std::fs::create_dir_all(&sdir).unwrap();
+        for field in FIELDS {
+            std::fs::write(sdir.join(format!("{field}.tex")), "tex").unwrap();
+            std::fs::write(sdir.join(format!("{field}.md")), "md").unwrap();
+        }
+        assert_eq!(ProblemStatement::load(dir.path()).unwrap().input, "md");
     }
 }

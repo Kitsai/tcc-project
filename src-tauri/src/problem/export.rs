@@ -15,6 +15,10 @@ use crate::{
     util::{Persistant, ResultExt, SerdePersistant},
 };
 
+mod moj;
+
+pub use moj::{export_moj_package, MojExportReport};
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportManifest {
@@ -291,7 +295,8 @@ pub async fn solve_export_tests(
         }
 
         let answer_path = export_answer_path(&export_dir, test.final_id);
-        std::fs::write(&answer_path, &result.stdout).fs_context(FsOperation::Write, &answer_path)?;
+        std::fs::write(&answer_path, &result.stdout)
+            .fs_context(FsOperation::Write, &answer_path)?;
     }
 
     log::debug!(
@@ -705,7 +710,11 @@ mod tests {
         let calls_clone = calls.clone();
         let runner: Arc<dyn Runner> = Arc::new(MockRunner::new(move |request| {
             *calls_clone.lock().unwrap() += 1;
-            let exit_code = if request.input.contains("crash") { 1 } else { 0 };
+            let exit_code = if request.input.contains("crash") {
+                1
+            } else {
+                0
+            };
             Ok(ExecutionInfo {
                 stdout: String::new(),
                 stderr: "segfault".to_string(),
@@ -811,7 +820,11 @@ mod tests {
                 "self-check should pass the same file as both output and answer"
             );
 
-            let exit_code = if checker_args[0].ends_with("02") { 1 } else { 0 };
+            let exit_code = if checker_args[0].ends_with("02") {
+                1
+            } else {
+                0
+            };
             Ok(ExecutionInfo {
                 stdout: "answer rejected".to_string(),
                 stderr: String::new(),
@@ -855,7 +868,10 @@ mod tests {
         .unwrap();
 
         let runner: Arc<dyn Runner> = Arc::new(MockRunner::new(|request| {
-            let cwd = request.cwd.as_ref().expect("generator should run with a cwd");
+            let cwd = request
+                .cwd
+                .as_ref()
+                .expect("generator should run with a cwd");
             for (i, content) in ["a", "b", "c", "d"].iter().enumerate() {
                 std::fs::write(cwd.join((i + 1).to_string()), content).unwrap();
             }

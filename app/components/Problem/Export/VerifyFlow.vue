@@ -23,6 +23,9 @@
 <script setup lang="ts">
 import type { VerificationStage, VerificationStageKey } from "~/types/export/verification";
 import type { ExportManifest } from "~/types/export/manifest";
+import { save } from "@tauri-apps/plugin-dialog";
+import { extensions } from "@tiptap/core";
+import type { MojExportReport } from "~/types/export/export_report";
 
 type RunMode = "verify" | "export";
 
@@ -31,6 +34,8 @@ const { throwError, throwSuccess } = useCustomToast();
 
 const activeRun = ref<RunMode | null>(null);
 const isRunning = computed(() => activeRun.value !== null);
+
+const export_path = ref<string | null>(null);
 
 const stages = ref<VerificationStage[]>([
   {
@@ -121,9 +126,8 @@ async function runCheckStage() {
   await invoke<number>("check_export_tests");
 }
 
-// TODO: wire this up to a real Tauri command once the backend exists.
 async function runExportStage() {
-  throw new Error("Not implemented yet");
+  await invoke<MojExportReport>("export_moj_package", { destPath: export_path.value });
 }
 
 const runners: Record<VerificationStageKey, () => Promise<void>> = {
@@ -137,12 +141,22 @@ const runners: Record<VerificationStageKey, () => Promise<void>> = {
 async function runPipeline(mode: RunMode) {
   if (isRunning.value) return;
 
+  if (mode === "export") {
+    let chosen = await save({ defaultPath: `${useProblems().currentName ?? 'problem'}.tar.gz`, filters: [{ name: "MOJ package", extensions: ["gz"] }] })
+    if (chosen === null) {
+      throwError("Export path is invalid.")
+      return
+    }
+    export_path.value = chosen?.endsWith(".tar.gz") ? chosen : `${chosen}.tar.gz`
+  }
+
   activeRun.value = mode;
   resetStages();
 
   const stagesToRun = mode === "verify"
     ? stages.value.filter(s => s.key !== "export")
     : stages.value;
+
 
   for (const stage of stagesToRun) {
     stage.status = "running";

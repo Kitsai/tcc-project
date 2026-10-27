@@ -39,7 +39,7 @@ Nuxt 4 SPA (SSR disabled). Key conventions:
 - **Code editor navigation** goes through `useProblemEditor()` (`app/composables/useProblemEditor.ts`): `openInEditor(type, file)` pushes to `/problem/editor?type=&file=`. Used by `solution.vue` and `Problem/Files.vue`.
 - **Monaco Editor** (`app/components/CodeEditor.vue`) reads/writes files via `read_file_content`/`write_file_content` Tauri commands. After mounting, it calls `initLsp()` to connect to the language server.
 - **LSP client** (`app/composables/useLsp.ts`) is a manual implementation: it calls `lsp_start` to get a WebSocket port, then handles the JSON-RPC protocol directly (hover, completion, diagnostics) without using the `monaco-languageclient` library.
-- **Problem statement editor** (`app/components/TexEditor.vue`) uses TipTap + `@tiptap/extension-mathematics` (KaTeX) for inline LaTeX rendering.
+- **Problem statement editor** (`app/components/MarkdownEditor.vue`) uses TipTap + `@tiptap/markdown` + `@tiptap/extension-mathematics` (KaTeX): it reads/writes Markdown (`$...$` / `$$...$$` for math), which is what MOJ's `docs/enunciado.md` expects. The statement is stored as six `statement/<field>.md` files (`name`, `legend`, `input`, `output`, `notes`, `tutorial`); `ProblemStatement::load` still falls back to legacy `<field>.tex` and `save` migrates them. The Polygon importer still copies LaTeX from the Polygon package as-is (no LaTeX→Markdown conversion yet).
 
 ### Backend (`src-tauri/src/`)
 

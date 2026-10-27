@@ -2,6 +2,8 @@ export interface Problem {
   path: string;
   definition: ProblemDefinition;
   stmt: ProblemStatement;
+  author?: string;
+  tags: string[];
 }
 
 export interface ProblemDefinition {

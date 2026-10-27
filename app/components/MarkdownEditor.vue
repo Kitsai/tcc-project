@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
+import { Markdown } from '@tiptap/markdown'
 import 'katex/dist/katex.min.css'
 import { MathematicsWithInline, migrateMathStrings } from '~/editor/extensions/mathematics';
 
@@ -15,38 +16,12 @@ const model = defineModel<string>();
 
 const emit = defineEmits(['update:modelValue']);
 
-// Helper to convert Editor JSON to raw TeX
-function getTexFromEditor(editor: any) {
-  if (!editor) return '';
-  const json = editor.getJSON();
-  let tex = '';
-
-  const walk = (nodes: any[]) => {
-    if (!nodes) return;
-    nodes.forEach((node, index) => {
-      if (node.type === 'text') {
-        tex += node.text;
-      } else if (node.type === 'inlineMath') {
-        tex += `$${node.attrs.latex}$`;
-      } else if (node.type === 'blockMath') {
-        tex += `\n$$${node.attrs.latex}$$\n`;
-      } else if (node.type === 'paragraph') {
-        walk(node.content);
-        if (index < nodes.length - 1) tex += '\n';
-      } else if (node.content) {
-        walk(node.content);
-      }
-    });
-  };
-
-  walk(json.content);
-  return tex;
-}
-
 const editor = useEditor({
   content: model.value,
+  contentType: 'markdown',
   extensions: [
     StarterKit,
+    Markdown,
     MathematicsWithInline
   ],
   onUpdate: () => {
@@ -54,9 +29,9 @@ const editor = useEditor({
   },
   onBlur: ({ editor }) => {
     // Sync to parent when leaving the editor
-    const currentTex = getTexFromEditor(editor);
-    if (model.value !== currentTex) {
-      model.value = currentTex;
+    const currentMarkdown = editor.getMarkdown();
+    if (model.value !== currentMarkdown) {
+      model.value = currentMarkdown;
     }
   }
 })
@@ -67,9 +42,9 @@ watch(() => editor.value?.state.doc, () => {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     if (editor.value && editor.value.isFocused) {
-      const currentTex = getTexFromEditor(editor.value);
-      if (model.value !== currentTex) {
-        model.value = currentTex;
+      const currentMarkdown = editor.value.getMarkdown();
+      if (model.value !== currentMarkdown) {
+        model.value = currentMarkdown;
       }
     }
   }, 1000);
@@ -81,9 +56,9 @@ watch(model, (newValue) => {
 
   // Only update editor if it's NOT focused (meaning the change is from outside)
   if (!editor.value.isFocused) {
-    const currentTex = getTexFromEditor(editor.value);
-    if (newValue !== currentTex) {
-      editor.value.commands.setContent(newValue || '', { emitUpdate: false });
+    const currentMarkdown = editor.value.getMarkdown();
+    if (newValue !== currentMarkdown) {
+      editor.value.commands.setContent(newValue || '', { emitUpdate: false, contentType: 'markdown' });
       migrateMathStrings(editor.value);
     }
   }

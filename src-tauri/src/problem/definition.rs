@@ -11,6 +11,10 @@ pub struct ProblemDefinition {
     pub main_solution: Option<String>,
     #[serde(default)]
     pub generators: Vec<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 impl ProblemDefinition {
@@ -21,6 +25,8 @@ impl ProblemDefinition {
             validator: None,
             main_solution: None,
             generators: Vec::new(),
+            author: None,
+            tags: Vec::new(),
         }
     }
 }
