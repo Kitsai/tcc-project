@@ -1,5 +1,6 @@
 import { type Problem } from "~/types/problem/problem"
 import { type PolygonImportResult } from "~/types/polygon/import"
+import { type ImportFormat } from "~/types/problem/import_format"
 
 export const useProblems = defineStore('problem', () => {
   const { invoke } = useTauri();
@@ -19,8 +20,8 @@ export const useProblems = defineStore('problem', () => {
     try {
       currentProblem.value = await invoke<Problem>('load_problem', { path });
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Falha ao carregar problema: " + e;
-      console.error("Falha ao carregar problema: ", e);
+      error.value = e instanceof Error ? e.message : "Failed to load problem: " + e;
+      console.error("Failed to load problem: ", e);
     }
     loading.value = false;
 
@@ -33,24 +34,24 @@ export const useProblems = defineStore('problem', () => {
     try {
       currentProblem.value = await invoke<Problem>('create_problem', { name, path });
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Falha ao criar problema: " + e;
-      console.error("Falha ao carregar problema: ", e);
+      error.value = e instanceof Error ? e.message : "Failed to create problem: " + e;
+      console.error("Failed to create problem: ", e);
     }
     loading.value = false;
   }
 
-  async function importPolygon(source: string, destParent: string, name: string) {
+  async function importPackage(format: ImportFormat, source: string, destParent: string, name: string) {
     loading.value = true;
     error.value = null;
     importWarnings.value = [];
 
     try {
-      const result = await invoke<PolygonImportResult>('import_polygon_problem', { source, destParent, name });
+      const result = await invoke<PolygonImportResult>(format === 'moj' ? 'import_moj_problem' : 'import_polygon_problem', { source, destParent, name });
       currentProblem.value = result.problem;
       importWarnings.value = result.warnings;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Falha ao importar problema: " + e;
-      console.error("Falha ao importar problema: ", e);
+      error.value = e instanceof Error ? e.message : "Failed to import problem: " + e;
+      console.error("Failed to import problem: ", e);
     }
     loading.value = false;
   }
@@ -64,6 +65,6 @@ export const useProblems = defineStore('problem', () => {
     currentName,
     load,
     create,
-    importPolygon
+    importPackage
   };
 });

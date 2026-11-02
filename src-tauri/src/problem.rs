@@ -107,7 +107,9 @@ mod definition;
 mod dir;
 mod export;
 mod files;
+mod import;
 mod manager;
+mod moj;
 mod registration;
 mod solutions;
 mod statement;
@@ -135,6 +137,7 @@ pub use validator::{
     ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,
 };
 
+pub use import::{import_moj_package, import_polygon_package, ImportResult};
 pub use export::{
     check_export_tests, export_moj_package, generate_export_tests, solve_export_tests,
     validate_export_tests, ExportManifest, ExportManifestEntry, MojExportReport,

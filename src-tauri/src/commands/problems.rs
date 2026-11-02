@@ -30,7 +30,7 @@ pub fn create_problem(
     let _date = UtcDateTime::now().to_string();
 
     if !path.is_dir() {
-        return Err(AppError::from("Caminho não é um diretório válido!"));
+        return Err(AppError::from("Path is not a valid directory!"));
     }
 
     let path = path.join(&name);

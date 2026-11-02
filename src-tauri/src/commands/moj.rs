@@ -1,0 +1,31 @@
+use std::path::PathBuf;
+
+use tauri::State;
+
+use crate::{
+    compile_service::CompileService,
+    error::AppResult,
+    problem::{import_moj_package, ImportResult, ProblemManager},
+    util::ResultExt,
+};
+
+#[tauri::command]
+pub async fn import_moj_problem(
+    source: String,
+    dest_parent: String,
+    name: String,
+    state: State<'_, ProblemManager>,
+    compile_service: State<'_, CompileService>,
+) -> AppResult<ImportResult> {
+    let source = PathBuf::from(source);
+    let dest_path = PathBuf::from(dest_parent).join(&name);
+
+    let result = import_moj_package(&source, &dest_path, &compile_service).await?;
+
+    {
+        let mut current = state.current.write().err_to_string()?;
+        *current = Some(result.problem.clone());
+    }
+
+    Ok(result)
+}

@@ -9,22 +9,19 @@
 //! `build_moj_package` writes the directory tree, `pack_tar_gz` archives it.
 //! `export_moj_package` chains both through a throwaway `TempDir`.
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use flate2::{write::GzEncoder, Compression};
 use serde::Serialize;
 
 use super::{export_answer_path, export_test_path, get_export_dir, get_export_manifest_path};
 use crate::{
     constants::{DEFAULT_AUTHOR, SOLUTIONS_PATH},
-    error::{AppResult, FsOperation},
-    fs::FsResultExt,
+    error::AppResult,
+    fs::{copy_file, to_lf, write_file},
     problem::{
-        get_default_checkers_path, ExportManifest, Problem, ProblemFileType, SolutionDescription,
-        SolutionTag,
+        get_default_checkers_path,
+        moj::{archive::pack_tar_gz, format::*, statement},
+        ExportManifest, Problem, ProblemFileType, SolutionDescription,
     },
     util::Persistant,
 };
@@ -59,24 +56,15 @@ pub fn build_moj_package(problem: &Problem, out_dir: &Path) -> AppResult<MojExpo
         .map(str::trim)
         .filter(|a| !a.is_empty())
         .unwrap_or(DEFAULT_AUTHOR);
-    write_file(&out_dir.join("author"), format!("{author}\n"))?;
-    write_file(&out_dir.join("tags"), render_tags(&problem.definition.tags))?;
-    write_file(&out_dir.join("conf"), DEFAULT_CONF)?;
+    write_file(&out_dir.join(AUTHOR_FILE), render_author(author))?;
+    write_file(&out_dir.join(TAGS_FILE), render_tags(&problem.definition.tags))?;
+    write_file(&out_dir.join(CONF_FILE), DEFAULT_CONF)?;
 
-    // Only content fields: `owner`/`public` are server-side and ignored on upload.
     let title = match problem.stmt.name.trim() {
         "" => problem.definition.name.as_str(),
         name => name,
     };
-    let meta = serde_json::json!({
-        "display_title": title,
-        "languages": [],
-        "collections": [],
-    });
-    write_file(
-        &out_dir.join(".moj-meta.json"),
-        serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?,
-    )?;
+    write_file(&out_dir.join(META_FILE), render_meta(title)?)?;
 
     write_statement(problem, out_dir, &mut report)?;
     write_tests(&problem.path, out_dir, &mut report)?;
@@ -86,52 +74,11 @@ pub fn build_moj_package(problem: &Problem, out_dir: &Path) -> AppResult<MojExpo
     Ok(report)
 }
 
-pub fn pack_tar_gz(src: &Path, dest: &Path) -> AppResult<()> {
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).fs_context(FsOperation::CreateDir, parent)?;
-    }
-
-    let file = fs::File::create(dest).fs_context(FsOperation::Create, dest)?;
-    let mut builder = tar::Builder::new(GzEncoder::new(file, Compression::default()));
-
-    append_dir(&mut builder, src, src)?;
-
-    builder
-        .into_inner()
-        .and_then(|encoder| encoder.finish())
-        .fs_context(FsOperation::Write, dest)?;
-
-    Ok(())
-}
-
 pub fn export_moj_package(problem: &Problem, dest: &Path) -> AppResult<MojExportReport> {
     let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
     let report = build_moj_package(problem, staging.path())?;
     pack_tar_gz(staging.path(), dest)?;
     Ok(report)
-}
-
-fn write_file(path: &Path, contents: impl AsRef<[u8]>) -> AppResult<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).fs_context(FsOperation::CreateDir, parent)?;
-    }
-    fs::write(path, contents).fs_context(FsOperation::Write, path)
-}
-
-fn render_tags(tags: &[String]) -> String {
-    tags.iter()
-        .map(|t| t.trim().trim_start_matches('#').trim())
-        .filter(|t| !t.is_empty())
-        .map(|t| format!("#{t}\n"))
-        .collect()
-}
-
-fn to_lf(text: &str) -> String {
-    text.replace("\r\n", "\n")
-}
-
-fn normalize(text: &str) -> String {
-    to_lf(text).trim().to_string()
 }
 
 fn write_statement(
@@ -152,30 +99,12 @@ fn write_statement(
             .push("The statement has no output section".into());
     }
 
-    // MOJ's validation requires exactly these two headings.
-    let mut sections = Vec::new();
-    if !stmt.legend.trim().is_empty() {
-        sections.push(normalize(&stmt.legend));
-    }
-    sections.push("## Entrada".to_string());
-    sections.push(normalize(&stmt.input));
-    sections.push("## Saída".to_string());
-    sections.push(normalize(&stmt.output));
-    if !stmt.notes.trim().is_empty() {
-        sections.push("## Observações".to_string());
-        sections.push(normalize(&stmt.notes));
-    }
-    sections.retain(|s| !s.is_empty());
-
-    write_file(
-        &out_dir.join("docs/enunciado.md"),
-        format!("{}\n", sections.join("\n\n")),
-    )?;
+    write_file(&out_dir.join(STATEMENT_FILE), statement::render(stmt))?;
 
     if !stmt.tutorial.trim().is_empty() {
         write_file(
-            &out_dir.join("docs/solucao.md"),
-            format!("{}\n", normalize(&stmt.tutorial)),
+            &out_dir.join(TUTORIAL_FILE),
+            format!("{}\n", statement::clean(&stmt.tutorial)),
         )?;
     }
 
@@ -201,7 +130,7 @@ fn write_tests(problem_path: &Path, out_dir: &Path, report: &mut MojExportReport
     for entry in &manifest.tests {
         let name = if entry.example {
             sample_count += 1;
-            format!("sample{sample_count}")
+            sample_name(sample_count)
         } else {
             format!("{:02}", entry.final_id)
         };
@@ -216,8 +145,8 @@ fn write_tests(problem_path: &Path, out_dir: &Path, report: &mut MojExportReport
             .into());
         }
 
-        copy_file(&input, &out_dir.join("tests/input").join(&name))?;
-        copy_file(&answer, &out_dir.join("tests/output").join(&name))?;
+        copy_file(&input, &out_dir.join(TESTS_INPUT_DIR).join(&name))?;
+        copy_file(&answer, &out_dir.join(TESTS_OUTPUT_DIR).join(&name))?;
     }
 
     report.tests = manifest.tests.len();
@@ -231,28 +160,6 @@ fn write_tests(problem_path: &Path, out_dir: &Path, report: &mut MojExportReport
     Ok(())
 }
 
-fn copy_file(from: &Path, to: &Path) -> AppResult<()> {
-    if let Some(parent) = to.parent() {
-        fs::create_dir_all(parent).fs_context(FsOperation::CreateDir, parent)?;
-    }
-    fs::copy(from, to).fs_context(FsOperation::Copy, from)?;
-    Ok(())
-}
-
-/// `Main` and `Accepted` both map to `good`: MOJ has no "main" notion and
-/// calibrates the time limit from the slowest `good` solution.
-fn sols_dir(tag: &SolutionTag) -> Option<&'static str> {
-    match tag {
-        SolutionTag::Main | SolutionTag::Accepted => Some("good"),
-        SolutionTag::WrongAnswer => Some("wrong"),
-        SolutionTag::TimeLimitExceeded => Some("slow"),
-        SolutionTag::TimeLimitExceededOrAccepted
-        | SolutionTag::TimeLimitExceededOrMemoryLimitExceeded
-        | SolutionTag::MemoryLimitExceeded
-        | SolutionTag::None => None,
-    }
-}
-
 fn write_solutions(
     problem: &Problem,
     out_dir: &Path,
@@ -263,7 +170,7 @@ fn write_solutions(
 
     let mut good = 0;
     for desc in &descriptions {
-        let Some(dir) = sols_dir(&desc.tag) else {
+        let Some(dir) = folder_for_tag(&desc.tag) else {
             report.warnings.push(format!(
                 "Solution {} has a tag MOJ has no folder for: skipped",
                 desc.file_name
@@ -282,10 +189,10 @@ fn write_solutions(
 
         copy_file(
             &source,
-            &out_dir.join("sols").join(dir).join(&desc.file_name),
+            &out_dir.join(SOLS_DIR).join(dir).join(&desc.file_name),
         )?;
         report.solutions += 1;
-        if dir == "good" {
+        if dir == GOOD_DIR {
             good += 1;
         }
     }
@@ -330,73 +237,22 @@ fn write_checker(problem: &Problem, out_dir: &Path, report: &mut MojExportReport
         return Err(format!("Checker source not found: {:?}", source).into());
     }
 
-    copy_file(&source, &out_dir.join("scripts/checker.cpp"))?;
-    write_file(&out_dir.join("scripts/compare.sh"), to_lf(COMPARE_STUB))?;
+    copy_file(&source, &out_dir.join(CHECKER_FILE))?;
+    write_file(&out_dir.join(COMPARE_FILE), to_lf(COMPARE_STUB))?;
     report.custom_checker = true;
-
-    Ok(())
-}
-
-fn is_executable(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()) == Some("sh")
-}
-
-fn append_dir<W: std::io::Write>(
-    builder: &mut tar::Builder<W>,
-    root: &Path,
-    dir: &Path,
-) -> AppResult<()> {
-    let mut entries: Vec<_> = fs::read_dir(dir)
-        .fs_context(FsOperation::Read, dir)?
-        .collect::<Result<_, _>>()
-        .fs_context(FsOperation::Read, dir)?;
-    // Sorted so the archive is reproducible.
-    entries.sort_by_key(|e| e.file_name());
-
-    for entry in entries {
-        let path = entry.path();
-        let relative = path.strip_prefix(root).map_err(|e| e.to_string())?;
-        // Always `/`, whatever the host OS.
-        let name = relative
-            .components()
-            .map(|c| c.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/");
-
-        let mut header = tar::Header::new_gnu();
-        header.set_mtime(0);
-
-        if path.is_dir() {
-            header.set_entry_type(tar::EntryType::Directory);
-            header.set_mode(0o755);
-            header.set_size(0);
-            builder
-                .append_data(&mut header, format!("{name}/"), std::io::empty())
-                .fs_context(FsOperation::Write, &path)?;
-            append_dir(builder, root, &path)?;
-        } else {
-            let file = fs::File::open(&path).fs_context(FsOperation::Read, &path)?;
-            let size = file.metadata().fs_context(FsOperation::Read, &path)?.len();
-            header.set_entry_type(tar::EntryType::Regular);
-            header.set_mode(if is_executable(&path) { 0o755 } else { 0o644 });
-            header.set_size(size);
-            builder
-                .append_data(&mut header, &name, file)
-                .fs_context(FsOperation::Write, &path)?;
-        }
-    }
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{fs, io::Read};
+
     use super::*;
     use crate::{
-        problem::{ExportManifestEntry, ProblemDefinition},
+        problem::{ExportManifestEntry, ProblemDefinition, SolutionTag},
         test_support::temp_problem,
     };
-    use std::io::Read;
 
     /// A problem with 3 exported tests (1 example), one solution per
     /// interesting tag, a filled statement and an author.

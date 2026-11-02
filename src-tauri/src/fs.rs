@@ -23,6 +23,40 @@ pub fn delete_file(path: &Path) -> AppResult<()> {
     std::fs::remove_file(path).fs_context(FsOperation::Delete, path)
 }
 
+/// Writes `contents` to `path`, creating the parent directories first.
+pub fn write_file(path: &Path, contents: impl AsRef<[u8]>) -> AppResult<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).fs_context(FsOperation::CreateDir, parent)?;
+    }
+    std::fs::write(path, contents).fs_context(FsOperation::Write, path)
+}
+
+/// Copies `from` to `to`, creating the parent directories of `to` first.
+pub fn copy_file(from: &Path, to: &Path) -> AppResult<()> {
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent).fs_context(FsOperation::CreateDir, parent)?;
+    }
+    std::fs::copy(from, to).fs_context(FsOperation::Copy, from)?;
+    Ok(())
+}
+
+/// Names of the regular files directly inside `dir` (empty if it is missing).
+pub fn file_names_in(dir: &Path) -> Vec<String> {
+    std::fs::read_dir(dir)
+        .map(|rd| {
+            rd.flatten()
+                .filter(|e| e.path().is_file())
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Windows line endings turned into `\n`.
+pub fn to_lf(text: &str) -> String {
+    text.replace("\r\n", "\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

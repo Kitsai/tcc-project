@@ -43,7 +43,7 @@ pub struct PolygonMainTest {
 }
 
 pub fn parse_problem_xml(xml: &str) -> AppResult<PolygonProblem> {
-    let doc = Document::parse(xml).map_err(|e| AppError::from(format!("problem.xml inválido: {e}")))?;
+    let doc = Document::parse(xml).map_err(|e| AppError::from(format!("Invalid problem.xml: {e}")))?;
     let root = doc.root_element();
 
     let display_name = find_child(&root, "names")

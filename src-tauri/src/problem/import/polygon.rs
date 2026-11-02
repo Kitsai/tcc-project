@@ -1,25 +1,19 @@
 use std::{fs, path::Path};
 
-use serde::Serialize;
+mod xml;
 
+use self::xml::{PolygonMainTest, PolygonProblem};
+use super::{create_destination, import_and_compile_file, ImportResult};
 use crate::{
     compile_service::CompileService,
     constants::{CHECKER_TESTS_PATH, VALIDATOR_TESTS_PATH},
     error::{AppError, AppResult},
-    polygon::xml::{self, PolygonMainTest, PolygonProblem},
     problem::{
-        create_problem_dirs, CheckerTest, CheckerVerdict, Problem, ProblemFileType,
-        ProgrammingLanguage, SolutionDescription, TestDefinition, TestType, ValidatorTest,
+        CheckerTest, CheckerVerdict, Problem, ProblemFileType, SolutionDescription, TestDefinition, TestType, ValidatorTest,
         ValidatorTestResult,
     },
-    util::{Persistant, ResultExt},
+    util::Persistant,
 };
-
-#[derive(Serialize)]
-pub struct ImportResult {
-    pub problem: Problem,
-    pub warnings: Vec<String>,
-}
 
 const STATEMENT_REQUIRED_FILES: [&str; 5] = ["name.tex", "legend.tex", "input.tex", "output.tex", "notes.tex"];
 
@@ -36,31 +30,20 @@ pub async fn import_polygon_package(
     compile_service: &CompileService,
 ) -> AppResult<ImportResult> {
     if !source.is_dir() {
-        return Err(AppError::from("Caminho de origem não é um diretório válido"));
+        return Err(AppError::from("Source path is not a valid directory"));
     }
 
     let xml_path = source.join("problem.xml");
     if !xml_path.exists() {
         return Err(AppError::from(
-            "Pasta selecionada não é um pacote Polygon (problem.xml não encontrado)",
+            "The selected folder is not a Polygon package (problem.xml not found)",
         ));
     }
 
-    let xml_text = fs::read_to_string(&xml_path).map_err(|e| AppError::from(format!("Falha ao ler problem.xml: {e}")))?;
+    let xml_text = fs::read_to_string(&xml_path).map_err(|e| AppError::from(format!("Failed to read problem.xml: {e}")))?;
     let parsed = xml::parse_problem_xml(&xml_text)?;
 
-    if dest_path.exists() {
-        return Err(AppError::from("Já existe uma pasta com esse nome no destino selecionado"));
-    }
-
-    let name = dest_path
-        .file_name()
-        .ok_or_else(|| AppError::from("Nome de destino inválido"))?
-        .to_string_lossy()
-        .into_owned();
-
-    fs::create_dir_all(dest_path).err_to_string()?;
-    create_problem_dirs(dest_path)?;
+    let name = create_destination(dest_path)?;
 
     let mut problem = Problem::create(&name, dest_path.to_path_buf());
     let mut warnings = Vec::new();
@@ -82,7 +65,7 @@ pub async fn import_polygon_package(
     }
     if parsed.validator_count > 1 {
         warnings.push(format!(
-            "O pacote possui {} validadores; apenas o primeiro foi importado.",
+            "The package has {} validators; only the first one was imported.",
             parsed.validator_count
         ));
     }
@@ -112,54 +95,15 @@ pub async fn import_polygon_package(
     Ok(ImportResult { problem, warnings })
 }
 
-/// Copies `source_abs` into `dest_path/<file_type's dir>/`, compiles it, and
-/// returns the basename on success. Any failure (missing source, unrecognized
-/// extension, compile error) is pushed onto `warnings` and yields `None` —
-/// the file is still left copied where possible so the user can fix/select
-/// it manually later.
-async fn import_and_compile_file(
-    source_abs: &Path,
-    dest_path: &Path,
-    file_type: ProblemFileType,
-    compile_service: &CompileService,
-    warnings: &mut Vec<String>,
-) -> Option<String> {
-    let Some(file_name) = source_abs.file_name().map(|f| f.to_string_lossy().into_owned()) else {
-        warnings.push(format!("Caminho de arquivo inválido: {:?}", source_abs));
-        return None;
-    };
-
-    let relative = Path::new(file_type.directory()).join(&file_name);
-    let destination = dest_path.join(&relative);
-
-    if let Err(e) = fs::copy(source_abs, &destination) {
-        warnings.push(format!("Falha ao copiar '{file_name}' ({file_type}): {e}"));
-        return None;
-    }
-
-    let Some(language) = ProgrammingLanguage::get_from_path(&relative) else {
-        warnings.push(format!("'{file_name}' ({file_type}) tem uma extensão não reconhecida e não foi selecionado"));
-        return None;
-    };
-
-    let _guard = compile_service.lock().await;
-    if let Err(e) = compile_service.compile(&language, &relative, dest_path).await {
-        warnings.push(format!("Falha ao compilar '{file_name}' ({file_type}): {e}"));
-        return None;
-    }
-
-    Some(file_name)
-}
-
 fn import_solutions(source: &Path, dest_path: &Path, parsed: &PolygonProblem, warnings: &mut Vec<String>) -> AppResult<()> {
     for (rel, tag) in &parsed.solutions {
         let Some(file_name) = rel.file_name().map(|f| f.to_string_lossy().into_owned()) else {
-            warnings.push(format!("Caminho de solução inválido: {:?}", rel));
+            warnings.push(format!("Invalid solution path: {:?}", rel));
             continue;
         };
 
         if let Err(e) = SolutionDescription::create_from_existing(source.join(rel), dest_path) {
-            warnings.push(format!("Falha ao importar a solução '{file_name}': {e}"));
+            warnings.push(format!("Failed to import solution '{file_name}': {e}"));
             continue;
         }
 
@@ -167,7 +111,7 @@ fn import_solutions(source: &Path, dest_path: &Path, parsed: &PolygonProblem, wa
             Some(tag) => tag.clone(),
             None => {
                 warnings.push(format!(
-                    "Tag de solução desconhecida para '{file_name}', marcada como Accepted"
+                    "Unknown solution tag for '{file_name}', marked as Accepted"
                 ));
                 continue;
             }
@@ -204,7 +148,7 @@ fn import_statement(source: &Path, parsed: &PolygonProblem, warnings: &mut Vec<S
         });
 
     let Some(dir) = dir else {
-        warnings.push("Nenhuma seção de enunciado utilizável foi encontrada no pacote".to_string());
+        warnings.push("No usable statement section was found in the package".to_string());
         return ProblemStatement::new(&parsed.display_name);
     };
 
@@ -234,7 +178,7 @@ fn import_checker_tests(source: &Path, dest_path: &Path, verdicts: &[CheckerVerd
         ) {
             (Ok(i), Ok(o), Ok(a)) => (i, o, a),
             _ => {
-                warnings.push(format!("Teste de checker {stem} ausente ou ilegível, ignorado"));
+                warnings.push(format!("Checker test {stem} is missing or unreadable, skipped"));
                 continue;
             }
         };
@@ -260,7 +204,7 @@ fn import_validator_tests(
         let input = match fs::read_to_string(src_dir.join(&stem)) {
             Ok(input) => input,
             Err(_) => {
-                warnings.push(format!("Teste de validador {stem} ausente ou ilegível, ignorado"));
+                warnings.push(format!("Validator test {stem} is missing or unreadable, skipped"));
                 continue;
             }
         };
@@ -296,7 +240,7 @@ fn import_main_tests(
                 match fs::read_to_string(tests_dir.join(&stem)) {
                     Ok(content) => (TestType::Manual, content),
                     Err(_) => {
-                        warnings.push(format!("Teste manual {stem} não encontrado no pacote, ignorado"));
+                        warnings.push(format!("Manual test {stem} not found in the package, skipped"));
                         continue;
                     }
                 }
@@ -438,7 +382,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(result.warnings.iter().any(|w| w.contains("Teste manual 01")));
+        assert!(result.warnings.iter().any(|w| w.contains("Manual test 01")));
 
         let tests = TestDefinition::get_all(&dest_path).unwrap();
         assert_eq!(tests.len(), 1);
@@ -497,6 +441,6 @@ mod tests {
             .await
             .err()
             .unwrap();
-        assert!(err.to_string().contains("Já existe"));
+        assert!(err.to_string().contains("already exists"));
     }
 }

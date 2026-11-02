@@ -25,7 +25,7 @@
                 </UButton>
             </UTooltip>
             <UColorModeButton />
-            <UTooltip text="Abrir configurações" :kbds="['meta', 'Escape']">
+            <UTooltip text="Open settings" :kbds="['meta', 'Escape']">
                 <UButton
                     color="neutral"
                     variant="ghost"

@@ -82,6 +82,43 @@ pub fn num_cpus() -> usize {
         .unwrap_or(4)
 }
 
+fn take_digits(chars: &mut std::iter::Peekable<std::str::Chars>) -> String {
+    let mut digits = String::new();
+    while let Some(c) = chars.next_if(|c| c.is_ascii_digit()) {
+        digits.push(c);
+    }
+    digits.trim_start_matches('0').to_string()
+}
+
+/// Orders `2` before `10` (and `sample2` before `sample10`).
+pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
+
+    loop {
+        match (a.peek().copied(), b.peek().copied()) {
+            (None, None) => return Ordering::Equal,
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
+                let (da, db) = (take_digits(&mut a), take_digits(&mut b));
+                let order = da.len().cmp(&db.len()).then_with(|| da.cmp(&db));
+                if order != Ordering::Equal {
+                    return order;
+                }
+            }
+            (Some(x), Some(y)) => {
+                if x != y {
+                    return x.cmp(&y);
+                }
+                a.next();
+                b.next();
+            }
+        }
+    }
+}
+
 /// Current UTC time as `"Tue Feb 10 00:28:04 UTC 2026"`.
 pub fn now() -> String {
     let now = UtcDateTime::now();
@@ -176,5 +213,13 @@ mod tests {
         let path = dir.path().join("missing.json");
 
         assert!(Fixture::load(&path).is_err());
+    }
+
+    #[test]
+    fn natural_order_puts_2_before_10() {
+        let mut names = vec!["10", "2", "sample10", "sample2", "01", "1"];
+        names.sort_by(|a, b| natural_cmp(a, b));
+
+        assert_eq!(names, ["01", "1", "2", "10", "sample2", "sample10"]);
     }
 }

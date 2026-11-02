@@ -1,5 +1,5 @@
 <template>
-  <UButton class="w-fit text-lg" label="Abrir Problema" @click="onClick" />
+  <UButton class="w-fit text-lg" label="Open Problem" @click="onClick" />
 </template>
 
 <script setup lang="ts">

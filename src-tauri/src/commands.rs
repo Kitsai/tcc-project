@@ -4,6 +4,7 @@ pub mod dev;
 pub mod export;
 pub mod files;
 pub mod lsp;
+pub mod moj;
 pub mod polygon;
 pub mod problems;
 pub mod settings;
