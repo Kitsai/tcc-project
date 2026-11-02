@@ -7,6 +7,7 @@ use crate::{
     error::{AppError, AppResult},
     problem::{self, ExportManifest, MojExportReport, ProblemManager, ProgrammingLanguage},
     runner::Runner,
+    settings::AppSettings,
     util::ResultExt,
 };
 
@@ -96,10 +97,13 @@ pub async fn check_export_tests(
 }
 
 /// Packs the current problem as a MOJ package at `dest_path`. A non-empty
-/// `author` is persisted to the problem first (MOJ requires one).
+/// `author` is persisted to the problem first (MOJ requires one). A problem
+/// with no author (e.g. imported without one) is exported under the global
+/// author name from the settings, without writing it to the problem.
 #[tauri::command]
 pub fn export_moj_package(
     problem_manager: State<'_, ProblemManager>,
+    settings: State<'_, AppSettings>,
     dest_path: String,
     author: Option<String>,
 ) -> AppResult<MojExportReport> {
@@ -107,12 +111,13 @@ pub fn export_moj_package(
         problem_manager.with_current_mut(|p| p.definition.author = Some(author))?;
     }
 
-    let problem = problem_manager
+    let mut problem = problem_manager
         .current
         .read()
         .err_to_string()?
         .clone()
         .ok_or(AppError::NoProblemOpen)?;
+    problem.definition.fill_missing_author(&settings.author()?);
 
     problem::export_moj_package(&problem, std::path::Path::new(&dest_path))
 }

@@ -31,4 +31,42 @@ impl ProblemDefinition {
     }
 }
 
+impl ProblemDefinition {
+    /// Sets `author` to `fallback` only when none is set (or it is blank),
+    /// so an author that came with an imported problem is never overwritten.
+    pub fn fill_missing_author(&mut self, fallback: &str) {
+        let missing = self.author.as_deref().is_none_or(|a| a.trim().is_empty());
+        if missing {
+            self.author = Some(fallback.to_string());
+        }
+    }
+}
+
 impl SerdePersistant for ProblemDefinition {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fill_missing_author_sets_it_when_none_or_blank() {
+        for author in [None, Some("  ".to_string())] {
+            let mut def = ProblemDefinition::new("p");
+            def.author = author;
+
+            def.fill_missing_author("Global");
+
+            assert_eq!(def.author.as_deref(), Some("Global"));
+        }
+    }
+
+    #[test]
+    fn fill_missing_author_keeps_an_existing_author() {
+        let mut def = ProblemDefinition::new("p");
+        def.author = Some("Daniel Porto".into());
+
+        def.fill_missing_author("Global");
+
+        assert_eq!(def.author.as_deref(), Some("Daniel Porto"));
+    }
+}

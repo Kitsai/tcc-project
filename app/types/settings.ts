@@ -1,3 +1,4 @@
 export interface Settings {
-  max_concurrency: number,
+  maxConcurrency: number,
+  authorName: string,
 }

@@ -9,7 +9,7 @@ export const useSettingsStore = defineStore('settings', {
 
   getters: {
     isConfigured: (state) => state.settings !== null,
-    maxConcurrent: (state) => state.settings?.max_concurrency ?? 0,
+    maxConcurrent: (state) => state.settings?.maxConcurrency ?? 0,
   },
 
   actions: {

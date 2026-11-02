@@ -14,6 +14,7 @@ use crate::{
         get_default_checkers_path, Problem, ProblemFileType, ProblemManager, ProblemStatement,
         ProgrammingLanguage,
     },
+    settings::AppSettings,
     util::{Persistant, ResultExt},
 };
 
@@ -22,6 +23,7 @@ pub fn create_problem(
     name: String,
     path: String,
     state: State<ProblemManager>,
+    settings: State<AppSettings>,
 ) -> AppResult<Problem> {
     let path = PathBuf::from_str(&path).err_to_string()?;
 
@@ -37,7 +39,8 @@ pub fn create_problem(
 
     debug!("Created folder to problem");
 
-    let problem = Problem::create(&name, path.clone());
+    let mut problem = Problem::create(&name, path.clone());
+    problem.definition.fill_missing_author(&settings.author()?);
 
     crate::problem::create_problem_dirs(&path)?;
 
