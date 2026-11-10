@@ -7,7 +7,7 @@ use crate::{
     error::{AppError, AppResult},
     problem::ProgrammingLanguage,
     runner::Runner,
-    util::{next_available_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
+    util::{next_available_id, path_by_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -77,25 +77,28 @@ impl ValidatorTest {
             }
 
             let mut current_id = dto.id;
-            let mut current_path = tests_path.join(format!("{:02}", dto.id));
+            let mut current_path = path_by_id(&tests_path, dto.id);
 
             for (input, verdict) in inputs.iter().zip(verdicts.iter()) {
                 let new_test = ValidatorTest::new(current_id, input, verdict.parse()?);
                 new_test.save(&current_path)?;
 
                 current_id += 1;
-                current_path = tests_path.join(format!("{:02}", current_id));
+                current_path = path_by_id(&tests_path, current_id);
 
                 if current_path.exists() {
                     current_id = next_available_id(&tests_path);
-                    current_path = tests_path.join(format!("{:02}", current_id));
+                    current_path = path_by_id(&tests_path, current_id);
                 }
             }
         } else {
-            let path = tests_path.join(format!("{:02}", dto.id));
+            let path = path_by_id(&tests_path, dto.id);
 
             if path.exists() {
-                return Err(AppError::from(format!("Test with id {} already exists", dto.id)));
+                return Err(AppError::from(format!(
+                    "Test with id {} already exists",
+                    dto.id
+                )));
             }
 
             let new_test = Self::new(dto.id, &dto.input, dto.verdict.parse()?);
@@ -136,8 +139,11 @@ impl ValidatorTest {
         let tests = Self::get_all(problem_path)?;
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
-        let language = ProgrammingLanguage::get_from_path(&validator_path)
-            .ok_or_else(|| AppError::InvalidLanguage { path: validator_path.clone() })?;
+        let language = ProgrammingLanguage::get_from_path(&validator_path).ok_or_else(|| {
+            AppError::InvalidLanguage {
+                path: validator_path.clone(),
+            }
+        })?;
         let request_template = language
             .resolve(&validator_path, problem_path)
             .into_request();
@@ -193,7 +199,7 @@ impl ValidatorTest {
                 let mut updated = test;
                 updated.set_actual_verdict(actual);
 
-                let path = tests_path.join(format!("{:02}", updated.id));
+                let path = path_by_id(&tests_path, updated.id);
                 updated.save(&path).ok();
 
                 emitter.emit("validator_test_result", updated);
@@ -247,12 +253,18 @@ mod tests {
 
     #[test]
     fn result_parses_known_values() {
-        assert!(matches!("VALID".parse::<ValidatorTestResult>(), Ok(ValidatorTestResult::Valid)));
+        assert!(matches!(
+            "VALID".parse::<ValidatorTestResult>(),
+            Ok(ValidatorTestResult::Valid)
+        ));
         assert!(matches!(
             "invalid".parse::<ValidatorTestResult>(),
             Ok(ValidatorTestResult::Invalid)
         ));
-        assert!(matches!("".parse::<ValidatorTestResult>(), Ok(ValidatorTestResult::None)));
+        assert!(matches!(
+            "".parse::<ValidatorTestResult>(),
+            Ok(ValidatorTestResult::None)
+        ));
     }
 
     #[test]
@@ -320,9 +332,14 @@ mod tests {
         let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::exit_code(1));
         let emitter = RecordingEmitter::default();
 
-        ValidatorTest::run_all(&problem.path, PathBuf::from("validator.py"), emitter.clone(), runner)
-            .await
-            .unwrap();
+        ValidatorTest::run_all(
+            &problem.path,
+            PathBuf::from("validator.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
 
         let tests = ValidatorTest::get_all(&problem.path).unwrap();
         assert!(matches!(tests[0].actual, ValidatorTestResult::Invalid));

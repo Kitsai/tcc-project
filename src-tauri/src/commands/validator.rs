@@ -7,7 +7,7 @@ use crate::{
     constants::VALIDATOR_TESTS_PATH,
     error::{AppError, AppResult},
     problem::{
-        ProblemManager, ProgrammingLanguage, ValidatorTest, ValidatorTestCreateDto,
+        ProblemManager, ValidatorTest, ValidatorTestCreateDto,
         ValidatorTestEditDto,
     },
     runner::Runner,
@@ -83,29 +83,13 @@ pub async fn run_validator_tests(
 ) -> AppResult<()> {
     let problem_path = problem_manager.get_current_path()?;
 
-    // Held while reading the current validator so a concurrent select_* call
-    // can never leave us reading a stale/half-updated selection (see
-    // CompileService doc comment). Released before running tests so a
-    // pending select isn't blocked for the whole test run.
-    let validator_path = {
-        let _guard = compile_service.lock().await;
-
-        let validator_path = problem_manager
-            .get_current_validator_path()?
-            .ok_or_else(|| "No validator configured for this problem".to_string())?;
-
-        log::debug!(
-            "[run_validator_tests] problem_path={:?} validator_path={:?}",
-            problem_path,
-            validator_path
-        );
-
-        let language = ProgrammingLanguage::get_from_path(&validator_path)
-            .ok_or_else(|| AppError::InvalidLanguage { path: validator_path.clone() })?;
-        compile_service.compile(&language, &validator_path, &problem_path).await?;
-
-        validator_path
-    };
+    let validator_path = compile_service
+        .compile_selected(
+            &problem_path,
+            || problem_manager.get_current_validator_path(),
+            "No validator configured for this problem",
+        )
+        .await?;
 
     ValidatorTest::run_all(&problem_path, validator_path, app, runner.inner().clone()).await
 }

@@ -1,4 +1,8 @@
-use std::{fmt::Display, fs, path::Path};
+use std::{
+    fmt::Display,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -158,8 +162,14 @@ pub fn now() -> String {
     )
 }
 
+pub fn path_by_id(base_path: &Path, id: u16) -> PathBuf {
+    base_path.join(format!("{:02}", id))
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     #[test]
@@ -221,5 +231,15 @@ mod tests {
         names.sort_by(|a, b| natural_cmp(a, b));
 
         assert_eq!(names, ["01", "1", "2", "10", "sample2", "sample10"]);
+    }
+
+    #[test]
+    fn path_construction_works() {
+        let base_path = PathBuf::from("test/path");
+        let id1 = 4;
+        let id2 = 344;
+
+        assert_eq!(path_by_id(&base_path, id1), base_path.join("04"));
+        assert_eq!(path_by_id(&base_path, id2), base_path.join("344"));
     }
 }

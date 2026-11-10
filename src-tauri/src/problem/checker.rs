@@ -10,7 +10,7 @@ use crate::{
     error::{AppError, AppResult},
     problem::ProgrammingLanguage,
     runner::Runner,
-    util::{next_available_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
+    util::{next_available_id, path_by_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -85,7 +85,7 @@ impl CheckerTest {
             }
 
             let mut current_id = dto.id;
-            let mut current_path = tests_path.join(format!("{:02}", dto.id));
+            let mut current_path = path_by_id(&tests_path, dto.id);
 
             for (((input, output), answer), verdict) in inputs
                 .iter()
@@ -98,21 +98,30 @@ impl CheckerTest {
                 new_test.save(&current_path)?;
 
                 current_id += 1;
-                current_path = tests_path.join(format!("{:02}", current_id));
+                current_path = path_by_id(&tests_path, current_id);
 
                 if current_path.exists() {
                     current_id = next_available_id(&tests_path);
-                    current_path = tests_path.join(format!("{:02}", current_id));
+                    current_path = path_by_id(&tests_path, current_id);
                 }
             }
         } else {
-            let path = tests_path.join(format!("{:02}", dto.id));
+            let path = path_by_id(&tests_path, dto.id);
 
             if path.exists() {
-                return Err(AppError::from(format!("Test with id {} already exists", dto.id)));
+                return Err(AppError::from(format!(
+                    "Test with id {} already exists",
+                    dto.id
+                )));
             }
 
-            let new_test = Self::new(dto.id, &dto.input, &dto.output, &dto.answer, dto.verdict.parse()?);
+            let new_test = Self::new(
+                dto.id,
+                &dto.input,
+                &dto.output,
+                &dto.answer,
+                dto.verdict.parse()?,
+            );
             new_test.save(&path)?;
         }
 
@@ -153,11 +162,12 @@ impl CheckerTest {
         let tests = Self::get_all(problem_path)?;
         let tests_path = problem_path.join(CHECKER_TESTS_PATH);
 
-        let language = ProgrammingLanguage::get_from_path(&checker_path)
-            .ok_or_else(|| AppError::InvalidLanguage { path: checker_path.clone() })?;
-        let request_template = language
-            .resolve(&checker_path, problem_path)
-            .into_request();
+        let language = ProgrammingLanguage::get_from_path(&checker_path).ok_or_else(|| {
+            AppError::InvalidLanguage {
+                path: checker_path.clone(),
+            }
+        })?;
+        let request_template = language.resolve(&checker_path, problem_path).into_request();
 
         log::debug!(
             "[checker run_all] checker={:?} command={:?} args={:?} tests={}",
@@ -187,7 +197,10 @@ impl CheckerTest {
                     Err(e) => {
                         emitter.emit(
                             "checker_test_error",
-                            CheckerTestError { id: test.id, error: e },
+                            CheckerTestError {
+                                id: test.id,
+                                error: e,
+                            },
                         );
                         return;
                     }
@@ -197,7 +210,10 @@ impl CheckerTest {
                     Err(e) => {
                         emitter.emit(
                             "checker_test_error",
-                            CheckerTestError { id: test.id, error: e },
+                            CheckerTestError {
+                                id: test.id,
+                                error: e,
+                            },
                         );
                         return;
                     }
@@ -207,7 +223,10 @@ impl CheckerTest {
                     Err(e) => {
                         emitter.emit(
                             "checker_test_error",
-                            CheckerTestError { id: test.id, error: e },
+                            CheckerTestError {
+                                id: test.id,
+                                error: e,
+                            },
                         );
                         return;
                     }
@@ -223,11 +242,7 @@ impl CheckerTest {
 
                 let (actual, comment) = match runner.execute(request).await {
                     Err(e) => {
-                        log::debug!(
-                            "[checker run_all] test id={} runner error: {}",
-                            test.id,
-                            e
-                        );
+                        log::debug!("[checker run_all] test id={} runner error: {}", test.id, e);
                         emitter.emit(
                             "checker_test_error",
                             CheckerTestError {
@@ -267,7 +282,7 @@ impl CheckerTest {
                 let mut updated = test;
                 updated.set_actual_verdict(actual, comment);
 
-                let path = tests_path.join(format!("{:02}", updated.id));
+                let path = path_by_id(&tests_path, updated.id);
                 updated.save(&path).ok();
 
                 emitter.emit("checker_test_result", updated);
@@ -335,14 +350,26 @@ mod tests {
 
     #[test]
     fn verdict_parses_known_aliases() {
-        assert!(matches!("OK".parse::<CheckerVerdict>(), Ok(CheckerVerdict::Ok)));
-        assert!(matches!("WA".parse::<CheckerVerdict>(), Ok(CheckerVerdict::WrongAnswer)));
+        assert!(matches!(
+            "OK".parse::<CheckerVerdict>(),
+            Ok(CheckerVerdict::Ok)
+        ));
+        assert!(matches!(
+            "WA".parse::<CheckerVerdict>(),
+            Ok(CheckerVerdict::WrongAnswer)
+        ));
         assert!(matches!(
             "PE".parse::<CheckerVerdict>(),
             Ok(CheckerVerdict::PresentationError)
         ));
-        assert!(matches!("FL".parse::<CheckerVerdict>(), Ok(CheckerVerdict::Crashed)));
-        assert!(matches!("".parse::<CheckerVerdict>(), Ok(CheckerVerdict::None)));
+        assert!(matches!(
+            "FL".parse::<CheckerVerdict>(),
+            Ok(CheckerVerdict::Crashed)
+        ));
+        assert!(matches!(
+            "".parse::<CheckerVerdict>(),
+            Ok(CheckerVerdict::None)
+        ));
     }
 
     #[test]
@@ -415,9 +442,14 @@ mod tests {
         let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::exit_code(1));
         let emitter = RecordingEmitter::default();
 
-        CheckerTest::run_all(&problem.path, PathBuf::from("checker.py"), emitter.clone(), runner)
-            .await
-            .unwrap();
+        CheckerTest::run_all(
+            &problem.path,
+            PathBuf::from("checker.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
 
         let tests = CheckerTest::get_all(&problem.path).unwrap();
         assert!(matches!(tests[0].actual, CheckerVerdict::WrongAnswer));

@@ -6,7 +6,7 @@ use crate::{
     compile_service::CompileService,
     constants::CHECKER_TESTS_PATH,
     error::{AppError, AppResult},
-    problem::{CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, ProblemManager, ProgrammingLanguage},
+    problem::{CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, ProblemManager},
     runner::Runner,
     util::{next_available_id, Persistant, ResultExt},
 };
@@ -80,32 +80,13 @@ pub async fn run_checker_tests(
 ) -> AppResult<()> {
     let problem_path = problem_manager.get_current_path()?;
 
-    // Held while reading the current checker so a concurrent select_* call
-    // can never leave us reading a stale/half-updated selection (see
-    // CompileService doc comment). Released before running tests so a
-    // pending select isn't blocked for the whole test run.
-    let checker_path = {
-        let _guard = compile_service.lock().await;
-
-        let checker_path = problem_manager
-            .get_current_checker_path()?
-            .ok_or_else(|| "No checker configured for this problem".to_string())?;
-
-        log::debug!(
-            "[run_checker_tests] problem_path={:?} checker_path={:?}",
-            problem_path,
-            checker_path
-        );
-
-        let language = ProgrammingLanguage::get_from_path(&checker_path)
-            .ok_or_else(|| AppError::InvalidLanguage { path: checker_path.clone() })?;
-
-        // Always attempted; compile() itself skips the actual compiler
-        // invocation when the binary is already up to date.
-        compile_service.compile(&language, &checker_path, &problem_path).await?;
-
-        checker_path
-    };
+    let checker_path = compile_service
+        .compile_selected(
+            &problem_path,
+            || problem_manager.get_current_checker_path(),
+            "No checker configured for this problem",
+        )
+        .await?;
 
     CheckerTest::run_all(&problem_path, checker_path, app, runner.inner().clone()).await
 }

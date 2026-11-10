@@ -75,9 +75,7 @@ fn read(root: &Path, relative: &str) -> Option<String> {
 }
 
 fn looks_like_package(root: &Path) -> bool {
-    root.join("docs").is_dir()
-        || root.join("tests").is_dir()
-        || root.join(AUTHOR_FILE).is_file()
+    root.join("docs").is_dir() || root.join("tests").is_dir() || root.join(AUTHOR_FILE).is_file()
 }
 
 fn import_statement(root: &Path, title: &str) -> ProblemStatement {
@@ -146,8 +144,14 @@ fn import_tests(root: &Path, dest_path: &Path, warnings: &mut Vec<String>) -> Ap
             }
         };
 
-        TestDefinition::new(next_id, TestType::Manual, &content, is_sample_name(name), name)
-            .save(&TestDefinition::path(dest_path, next_id))?;
+        TestDefinition::new(
+            next_id,
+            TestType::Manual,
+            &content,
+            is_sample_name(name),
+            name,
+        )
+        .save(&TestDefinition::path(dest_path, next_id))?;
         next_id += 1;
     }
 

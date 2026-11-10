@@ -1,18 +1,16 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use tokio::sync::{Mutex, MutexGuard};
 
-use crate::{error::AppResult, problem::ProgrammingLanguage, runner::Runner};
+use crate::{
+    error::{AppError, AppResult},
+    problem::ProgrammingLanguage,
+    runner::Runner,
+};
 
-/// Thin facade bundling the shared `Runner` with the compile step, so command
-/// handlers don't each need their own `Arc<dyn Runner>` plumbing.
-///
-/// `compile()` does not lock by itself — callers must hold a `lock()` guard
-/// across their whole read-current-selection -> compile (-> persist)
-/// sequence. This keeps a selection change and a test run from interleaving:
-/// whichever acquires the lock first fully finishes (including persisting
-/// the new checker/validator, for a selection) before the other proceeds, so
-/// a queued run never reads a stale or half-updated selection.
 pub struct CompileService {
     runner: Arc<dyn Runner>,
     lock: Mutex<()>,
@@ -36,7 +34,28 @@ impl CompileService {
         relative: &Path,
         project_path: &Path,
     ) -> AppResult<()> {
-        language.compile(relative, project_path, self.runner.as_ref()).await
+        language
+            .compile(relative, project_path, self.runner.as_ref())
+            .await
+    }
+
+    pub async fn compile_selected(
+        &self,
+        problem_path: &Path,
+        select: impl FnOnce() -> AppResult<Option<PathBuf>>,
+        missing_message: &str,
+    ) -> AppResult<PathBuf> {
+        let _guard = self.lock().await;
+        let selected = select()?.ok_or(missing_message)?;
+
+        let language =
+            ProgrammingLanguage::get_from_path(&selected).ok_or(AppError::InvalidLanguage {
+                path: selected.clone(),
+            })?;
+
+        self.compile(&language, &selected, problem_path).await?;
+
+        Ok(selected)
     }
 }
 
@@ -51,8 +70,93 @@ mod tests {
         let service = CompileService::new(Arc::new(MockRunner::unreachable()));
 
         service
-            .compile(&ProgrammingLanguage::Python3, Path::new("solution.py"), dir.path())
+            .compile(
+                &ProgrammingLanguage::Python3,
+                Path::new("solution.py"),
+                dir.path(),
+            )
             .await
             .expect("python compile should be a no-op and never touch the runner");
+    }
+
+    #[tokio::test]
+    async fn compile_selected_returns_the_selected_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
+
+        let path = service
+            .compile_selected(
+                dir.path(),
+                || Ok(Some(PathBuf::from("files/checker.py"))),
+                "nothing selected",
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(path, PathBuf::from("files/checker.py"));
+    }
+
+    #[tokio::test]
+    async fn compile_selected_without_a_selection_fails_with_the_given_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
+
+        let err = service
+            .compile_selected(dir.path(), || Ok(None), "No checker configured")
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.to_string(), "No checker configured");
+    }
+
+    #[tokio::test]
+    async fn compile_selected_rejects_an_unknown_language() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
+
+        let err = service
+            .compile_selected(
+                dir.path(),
+                || Ok(Some(PathBuf::from("files/notes.txt"))),
+                "nothing selected",
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, AppError::InvalidLanguage { .. }));
+    }
+
+    #[tokio::test]
+    async fn compile_selected_propagates_a_selection_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
+
+        let err = service
+            .compile_selected(dir.path(), || Err(AppError::NoProblemOpen), "unused")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, AppError::NoProblemOpen));
+    }
+
+    #[tokio::test]
+    async fn compile_selected_reads_the_selection_while_holding_the_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
+
+        service
+            .compile_selected(
+                dir.path(),
+                || {
+                    assert!(
+                        service.lock.try_lock().is_err(),
+                        "the lock must already be held while the selection is read"
+                    );
+                    Ok(Some(PathBuf::from("files/checker.py")))
+                },
+                "nothing selected",
+            )
+            .await
+            .unwrap();
     }
 }
