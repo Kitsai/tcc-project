@@ -12,7 +12,7 @@ use crate::{
     fs,
     problem::{ProblemFileType, ProgrammingLanguage},
     runner::{ExecutionInfo, Runner},
-    util::{Persistant, ResultExt, SerdePersistant},
+    util::{next_available_id, PathExt, Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -60,7 +60,12 @@ impl TestDefinition {
 
     /// The on-disk path for test `id` under `problem_path`.
     pub fn path(problem_path: &Path, id: u16) -> PathBuf {
-        problem_path.join(TESTS_PATH).join(format!("{:02}", id))
+        problem_path.join(TESTS_PATH).join_id(id)
+    }
+
+    /// The lowest id not used by any stored test.
+    pub fn next_id(problem_path: &Path) -> u16 {
+        next_available_id(&problem_path.join(TESTS_PATH))
     }
 
     pub fn create(dto: TestDefinitionCreateDto, problem_path: &Path) -> AppResult<Self> {
@@ -270,4 +275,40 @@ pub struct TestDefinitionEditDto {
     pub content: String,
     pub example: bool,
     pub description: String,
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::temp_problem;
+
+    fn create_dto(id: u16) -> TestDefinitionCreateDto {
+        TestDefinitionCreateDto {
+            id,
+            test_type: TestType::Manual,
+            content: "1 2".to_string(),
+            example: false,
+            description: String::new(),
+        }
+    }
+
+    #[test]
+    fn path_pads_the_id_under_the_tests_directory() {
+        let problem_path = Path::new("p");
+
+        assert_eq!(
+            TestDefinition::path(problem_path, 3),
+            problem_path.join(TESTS_PATH).join("03")
+        );
+    }
+
+    #[test]
+    fn next_id_is_the_first_free_id() {
+        let (_dir, problem) = temp_problem("p");
+        assert_eq!(TestDefinition::next_id(&problem.path), 1);
+
+        TestDefinition::create(create_dto(1), &problem.path).unwrap();
+        TestDefinition::create(create_dto(3), &problem.path).unwrap();
+
+        assert_eq!(TestDefinition::next_id(&problem.path), 2);
+    }
 }

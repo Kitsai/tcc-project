@@ -11,7 +11,7 @@ use crate::{
         TestDefinitionEditDto, TestType,
     },
     runner::Runner,
-    util::{next_available_id, Persistant, ResultExt},
+    util::{Persistant, ResultExt},
 };
 
 #[tauri::command]
@@ -23,8 +23,7 @@ pub fn get_tests(state: State<ProblemManager>) -> AppResult<Vec<TestDefinition>>
 
 #[tauri::command]
 pub fn get_next_test_id(state: State<ProblemManager>) -> AppResult<u16> {
-    let path = state.get_current_path()?.join(TESTS_PATH);
-    Ok(next_available_id(&path))
+    Ok(TestDefinition::next_id(&state.get_current_path()?))
 }
 
 #[tauri::command]

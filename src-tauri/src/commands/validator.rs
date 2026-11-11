@@ -1,17 +1,13 @@
-use std::fs;
-
 use tauri::{AppHandle, State};
 
 use crate::{
     compile_service::CompileService,
-    constants::VALIDATOR_TESTS_PATH,
-    error::{AppError, AppResult},
+    error::AppResult,
     problem::{
         ProblemManager, ValidatorTest, ValidatorTestCreateDto,
         ValidatorTestEditDto,
     },
     runner::Runner,
-    util::{next_available_id, Persistant, ResultExt},
 };
 
 #[tauri::command]
@@ -23,18 +19,12 @@ pub fn get_validator_tests(state: State<ProblemManager>) -> AppResult<Vec<Valida
 
 #[tauri::command]
 pub fn get_next_validator_test_id(state: State<ProblemManager>) -> AppResult<u16> {
-    let path = state.get_current_path()?.join(VALIDATOR_TESTS_PATH);
-    Ok(next_available_id(&path))
+    Ok(ValidatorTest::next_id(&state.get_current_path()?))
 }
 
 #[tauri::command]
 pub fn validator_test_exists(id: u16, state: State<ProblemManager>) -> AppResult<bool> {
-    let path = state
-        .get_current_path()?
-        .join(VALIDATOR_TESTS_PATH)
-        .join(format!("{:02}", id));
-
-    Ok(path.exists())
+    Ok(ValidatorTest::exists(&state.get_current_path()?, id))
 }
 
 #[tauri::command]
@@ -46,32 +36,13 @@ pub fn create_validator_test(
 }
 
 #[tauri::command]
-pub fn edit_validator_test(
-    dto: ValidatorTestEditDto,
-    state: State<ProblemManager>,
-) -> AppResult<()> {
-    let path = state
-        .get_current_path()?
-        .join(format!("{}/{:02}", VALIDATOR_TESTS_PATH, dto.id));
-
-    if path.exists() {
-        let mut current = ValidatorTest::load(&path)?;
-
-        current.edit(&dto.input, dto.verdict.parse()?);
-        current.save(&path)
-    } else {
-        Err(AppError::from(format!("Test with id {} does not exist", dto.id)))
-    }
+pub fn edit_validator_test(dto: ValidatorTestEditDto, state: State<ProblemManager>) -> AppResult<()> {
+    ValidatorTest::update(&state.get_current_path()?, dto)
 }
 
 #[tauri::command]
 pub fn delete_validator_test(id: u16, state: State<ProblemManager>) -> AppResult<()> {
-    let path = state
-        .get_current_path()?
-        .join(format!("{}/{:02}", VALIDATOR_TESTS_PATH, id));
-
-    fs::remove_file(path).err_to_string()?;
-    Ok(())
+    ValidatorTest::delete(&state.get_current_path()?, id)
 }
 
 #[tauri::command]

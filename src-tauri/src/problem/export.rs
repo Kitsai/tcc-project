@@ -12,7 +12,7 @@ use crate::{
     fs::FsResultExt,
     problem::{PreviewOutcome, ProgrammingLanguage, TestDefinition},
     runner::{ExecutionOptions, Runner},
-    util::{Persistant, ResultExt, SerdePersistant},
+    util::{PathExt, Persistant, ResultExt, SerdePersistant},
 };
 
 mod moj;
@@ -143,11 +143,11 @@ async fn resolve_into_export_dir(
 }
 
 fn export_test_path(export_dir: &Path, final_id: u16) -> PathBuf {
-    export_dir.join(format!("{:02}", final_id))
+    export_dir.join_id(final_id)
 }
 
 fn export_answer_path(export_dir: &Path, final_id: u16) -> PathBuf {
-    export_dir.join(format!("{:02}.a", final_id))
+    export_test_path(export_dir, final_id).with_extension("a")
 }
 
 fn save_one_file(
@@ -403,6 +403,15 @@ mod tests {
         runner::ExecutionInfo,
         test_support::{temp_problem, MockRunner},
     };
+
+    #[test]
+    fn export_paths_pad_the_id_and_the_answer_adds_an_extension() {
+        let dir = Path::new("export");
+
+        assert_eq!(export_test_path(dir, 4), dir.join("04"));
+        assert_eq!(export_answer_path(dir, 4), dir.join("04.a"));
+        assert_eq!(export_answer_path(dir, 120), dir.join("120.a"));
+    }
 
     fn create_manual(problem_path: &Path, id: u16, content: &str) -> TestDefinition {
         TestDefinition::create(

@@ -8,9 +8,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constants::{CHECKER_TESTS_PATH, MULT_SEPARATOR},
     error::{AppError, AppResult},
+    fs::delete_file,
     problem::ProgrammingLanguage,
     runner::Runner,
-    util::{next_available_id, path_by_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
+    util::{next_available_id, EventEmitter, PathExt, Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -85,7 +86,7 @@ impl CheckerTest {
             }
 
             let mut current_id = dto.id;
-            let mut current_path = path_by_id(&tests_path, dto.id);
+            let mut current_path = tests_path.join_id(dto.id);
 
             for (((input, output), answer), verdict) in inputs
                 .iter()
@@ -98,15 +99,15 @@ impl CheckerTest {
                 new_test.save(&current_path)?;
 
                 current_id += 1;
-                current_path = path_by_id(&tests_path, current_id);
+                current_path = tests_path.join_id(current_id);
 
                 if current_path.exists() {
                     current_id = next_available_id(&tests_path);
-                    current_path = path_by_id(&tests_path, current_id);
+                    current_path = tests_path.join_id(current_id);
                 }
             }
         } else {
-            let path = path_by_id(&tests_path, dto.id);
+            let path = tests_path.join_id(dto.id);
 
             if path.exists() {
                 return Err(AppError::from(format!(
@@ -126,6 +127,21 @@ impl CheckerTest {
         }
 
         Ok(())
+    }
+
+    pub fn update(problem_path: &Path, dto: CheckerTestEditDto) -> AppResult<()> {
+        let path = problem_path.join(CHECKER_TESTS_PATH).join_id(dto.id);
+        if path.exists() {
+            let mut current = Self::load(&path)?;
+
+            current.edit(&dto.input, &dto.output, &dto.answer, dto.verdict.parse()?);
+            current.save(&path)
+        } else {
+            Err(AppError::from(format!(
+                "Test with id {} does not exist",
+                dto.id
+            )))
+        }
     }
 
     pub fn edit(&mut self, input: &str, output: &str, answer: &str, verdict: CheckerVerdict) {
@@ -151,6 +167,11 @@ impl CheckerTest {
         }
 
         Ok(ret)
+    }
+
+    pub fn next_id(problem_path: &Path) -> u16 {
+        let path = problem_path.join(CHECKER_TESTS_PATH);
+        next_available_id(&path)
     }
 
     pub async fn run_all(
@@ -282,7 +303,7 @@ impl CheckerTest {
                 let mut updated = test;
                 updated.set_actual_verdict(actual, comment);
 
-                let path = path_by_id(&tests_path, updated.id);
+                let path = tests_path.join_id(updated.id);
                 updated.save(&path).ok();
 
                 emitter.emit("checker_test_result", updated);
@@ -296,6 +317,14 @@ impl CheckerTest {
         }
 
         Ok(())
+    }
+
+    pub fn exists(problem_path: &Path, id: u16) -> bool {
+        problem_path.join(CHECKER_TESTS_PATH).join_id(id).exists()
+    }
+
+    pub fn delete(problem_path: &Path, id: u16) -> AppResult<()> {
+        delete_file(&problem_path.join(CHECKER_TESTS_PATH).join_id(id))
     }
 }
 
@@ -457,5 +486,93 @@ mod tests {
         let events = emitter.events();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].0, "checker_test_result");
+    }
+
+    fn edit_dto(id: u16, verdict: &str) -> CheckerTestEditDto {
+        CheckerTestEditDto {
+            id,
+            input: "new in".to_string(),
+            output: "new out".to_string(),
+            answer: "new ans".to_string(),
+            verdict: verdict.to_string(),
+        }
+    }
+
+    #[test]
+    fn update_replaces_the_stored_fields() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        CheckerTest::update(&problem.path, edit_dto(1, "WA")).unwrap();
+
+        let test = CheckerTest::get_all(&problem.path).unwrap().remove(0);
+        assert_eq!(test.input, "new in");
+        assert_eq!(test.output, "new out");
+        assert_eq!(test.answer, "new ans");
+        assert!(matches!(test.expected, CheckerVerdict::WrongAnswer));
+    }
+
+    #[test]
+    fn update_of_a_missing_test_is_an_error_and_creates_nothing() {
+        let (_dir, problem) = temp_problem("p");
+
+        let err = CheckerTest::update(&problem.path, edit_dto(5, "OK")).unwrap_err();
+
+        assert!(err.to_string().contains("does not exist"));
+        assert!(CheckerTest::get_all(&problem.path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn update_with_an_invalid_verdict_keeps_the_stored_test() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        assert!(CheckerTest::update(&problem.path, edit_dto(1, "NOT_A_VERDICT")).is_err());
+
+        let test = CheckerTest::get_all(&problem.path).unwrap().remove(0);
+        assert_eq!(test.input, "in");
+        assert!(matches!(test.expected, CheckerVerdict::Ok));
+    }
+
+    #[test]
+    fn exists_tells_whether_the_test_is_stored() {
+        let (_dir, problem) = temp_problem("p");
+        assert!(!CheckerTest::exists(&problem.path, 1));
+
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        assert!(CheckerTest::exists(&problem.path, 1));
+        assert!(!CheckerTest::exists(&problem.path, 2));
+    }
+
+    #[test]
+    fn delete_removes_only_the_given_test() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(create_dto(2, "WA"), &problem.path).unwrap();
+
+        CheckerTest::delete(&problem.path, 1).unwrap();
+
+        assert!(!CheckerTest::exists(&problem.path, 1));
+        assert!(CheckerTest::exists(&problem.path, 2));
+    }
+
+    #[test]
+    fn delete_of_a_missing_test_is_an_error() {
+        let (_dir, problem) = temp_problem("p");
+
+        let err = CheckerTest::delete(&problem.path, 9).unwrap_err();
+
+        assert!(err.to_string().contains("delete"));
+    }
+
+    #[test]
+    fn next_id_is_the_first_free_id() {
+        let (_dir, problem) = temp_problem("p");
+        assert_eq!(CheckerTest::next_id(&problem.path), 1);
+
+        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+
+        assert_eq!(CheckerTest::next_id(&problem.path), 2);
     }
 }

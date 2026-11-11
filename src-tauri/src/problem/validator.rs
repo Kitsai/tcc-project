@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
     error::{AppError, AppResult},
+    fs::delete_file,
     problem::ProgrammingLanguage,
     runner::Runner,
-    util::{next_available_id, path_by_id, EventEmitter, Persistant, ResultExt, SerdePersistant},
+    util::{next_available_id, EventEmitter, PathExt, Persistant, ResultExt, SerdePersistant},
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -77,22 +78,22 @@ impl ValidatorTest {
             }
 
             let mut current_id = dto.id;
-            let mut current_path = path_by_id(&tests_path, dto.id);
+            let mut current_path = tests_path.join_id(dto.id);
 
             for (input, verdict) in inputs.iter().zip(verdicts.iter()) {
                 let new_test = ValidatorTest::new(current_id, input, verdict.parse()?);
                 new_test.save(&current_path)?;
 
                 current_id += 1;
-                current_path = path_by_id(&tests_path, current_id);
+                current_path = tests_path.join_id(current_id);
 
                 if current_path.exists() {
                     current_id = next_available_id(&tests_path);
-                    current_path = path_by_id(&tests_path, current_id);
+                    current_path = tests_path.join_id(current_id);
                 }
             }
         } else {
-            let path = path_by_id(&tests_path, dto.id);
+            let path = tests_path.join_id(dto.id);
 
             if path.exists() {
                 return Err(AppError::from(format!(
@@ -106,6 +107,21 @@ impl ValidatorTest {
         }
 
         Ok(())
+    }
+
+    pub fn update(problem_path: &Path, dto: ValidatorTestEditDto) -> AppResult<()> {
+        if !Self::exists(problem_path, dto.id) {
+            return Err(AppError::from(format!(
+                "Test with id {} does not exist",
+                dto.id
+            )));
+        }
+
+        let path = problem_path.join(VALIDATOR_TESTS_PATH).join_id(dto.id);
+        let mut current = Self::load(&path)?;
+
+        current.edit(&dto.input, dto.verdict.parse()?);
+        current.save(&path)
     }
 
     pub fn edit(&mut self, input: &str, verdict: ValidatorTestResult) {
@@ -128,6 +144,18 @@ impl ValidatorTest {
         }
 
         Ok(ret)
+    }
+
+    pub fn next_id(problem_path: &Path) -> u16 {
+        next_available_id(&problem_path.join(VALIDATOR_TESTS_PATH))
+    }
+
+    pub fn exists(problem_path: &Path, id: u16) -> bool {
+        problem_path.join(VALIDATOR_TESTS_PATH).join_id(id).exists()
+    }
+
+    pub fn delete(problem_path: &Path, id: u16) -> AppResult<()> {
+        delete_file(&problem_path.join(VALIDATOR_TESTS_PATH).join_id(id))
     }
 
     pub async fn run_all(
@@ -199,7 +227,7 @@ impl ValidatorTest {
                 let mut updated = test;
                 updated.set_actual_verdict(actual);
 
-                let path = path_by_id(&tests_path, updated.id);
+                let path = tests_path.join_id(updated.id);
                 updated.save(&path).ok();
 
                 emitter.emit("validator_test_result", updated);
@@ -347,5 +375,89 @@ mod tests {
         let events = emitter.events();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].0, "validator_test_result");
+    }
+
+    fn edit_dto(id: u16, verdict: &str) -> ValidatorTestEditDto {
+        ValidatorTestEditDto {
+            id,
+            input: "new in".to_string(),
+            verdict: verdict.to_string(),
+        }
+    }
+
+    #[test]
+    fn update_replaces_the_stored_fields() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        ValidatorTest::update(&problem.path, edit_dto(1, "INVALID")).unwrap();
+
+        let test = ValidatorTest::get_all(&problem.path).unwrap().remove(0);
+        assert_eq!(test.input, "new in");
+        assert!(matches!(test.expected, ValidatorTestResult::Invalid));
+    }
+
+    #[test]
+    fn update_of_a_missing_test_is_an_error_and_creates_nothing() {
+        let (_dir, problem) = temp_problem("p");
+
+        let err = ValidatorTest::update(&problem.path, edit_dto(5, "VALID")).unwrap_err();
+
+        assert!(err.to_string().contains("does not exist"));
+        assert!(ValidatorTest::get_all(&problem.path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn update_with_an_invalid_verdict_keeps_the_stored_test() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        assert!(ValidatorTest::update(&problem.path, edit_dto(1, "MAYBE")).is_err());
+
+        let test = ValidatorTest::get_all(&problem.path).unwrap().remove(0);
+        assert_eq!(test.input, "in");
+        assert!(matches!(test.expected, ValidatorTestResult::Valid));
+    }
+
+    #[test]
+    fn exists_tells_whether_the_test_is_stored() {
+        let (_dir, problem) = temp_problem("p");
+        assert!(!ValidatorTest::exists(&problem.path, 1));
+
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        assert!(ValidatorTest::exists(&problem.path, 1));
+        assert!(!ValidatorTest::exists(&problem.path, 2));
+    }
+
+    #[test]
+    fn delete_removes_only_the_given_test() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(create_dto(2, "INVALID"), &problem.path).unwrap();
+
+        ValidatorTest::delete(&problem.path, 1).unwrap();
+
+        assert!(!ValidatorTest::exists(&problem.path, 1));
+        assert!(ValidatorTest::exists(&problem.path, 2));
+    }
+
+    #[test]
+    fn delete_of_a_missing_test_is_an_error() {
+        let (_dir, problem) = temp_problem("p");
+
+        let err = ValidatorTest::delete(&problem.path, 9).unwrap_err();
+
+        assert!(err.to_string().contains("delete"));
+    }
+
+    #[test]
+    fn next_id_is_the_first_free_id() {
+        let (_dir, problem) = temp_problem("p");
+        assert_eq!(ValidatorTest::next_id(&problem.path), 1);
+
+        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+
+        assert_eq!(ValidatorTest::next_id(&problem.path), 2);
     }
 }

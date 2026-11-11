@@ -162,8 +162,14 @@ pub fn now() -> String {
     )
 }
 
-pub fn path_by_id(base_path: &Path, id: u16) -> PathBuf {
-    base_path.join(format!("{:02}", id))
+pub trait PathExt {
+    fn join_id(&self, id: u16) -> PathBuf;
+}
+
+impl PathExt for Path {
+    fn join_id(&self, id: u16) -> PathBuf {
+        self.join(format!("{:02}", id))
+    }
 }
 
 #[cfg(test)]
@@ -234,12 +240,25 @@ mod tests {
     }
 
     #[test]
-    fn path_construction_works() {
+    fn join_id_pads_ids_to_two_digits() {
         let base_path = PathBuf::from("test/path");
-        let id1 = 4;
-        let id2 = 344;
 
-        assert_eq!(path_by_id(&base_path, id1), base_path.join("04"));
-        assert_eq!(path_by_id(&base_path, id2), base_path.join("344"));
+        assert_eq!(base_path.join_id(4), base_path.join("04"));
+        assert_eq!(base_path.join_id(44), base_path.join("44"));
+    }
+
+    #[test]
+    fn join_id_does_not_truncate_longer_ids() {
+        let base_path = PathBuf::from("test/path");
+
+        assert_eq!(base_path.join_id(344), base_path.join("344"));
+    }
+
+    #[test]
+    fn join_id_works_on_a_borrowed_path() {
+        let base_path = PathBuf::from("test/path");
+        let borrowed: &Path = &base_path;
+
+        assert_eq!(borrowed.join_id(7), base_path.join("07"));
     }
 }
