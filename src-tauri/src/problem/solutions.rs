@@ -233,7 +233,7 @@ impl SolutionDescription {
         Ok(())
     }
 
-    pub fn create_new(file_name: String, problem_path: &Path) -> AppResult<()> {
+    pub fn create_new(problem_path: &Path, file_name: String) -> AppResult<()> {
         let destination = problem_path.join(SOLUTIONS_PATH).join(&file_name);
 
         fs::File::create_new(destination).err_to_string()?;
@@ -249,7 +249,7 @@ impl SolutionDescription {
             .map(|s| s.file_name.clone())
     }
 
-    pub fn create_from_existing(full_path: PathBuf, problem_path: &Path) -> AppResult<()> {
+    pub fn create_from_existing(problem_path: &Path, full_path: PathBuf) -> AppResult<()> {
         let file_name = full_path
             .file_name()
             .ok_or("Path has no file name")?
@@ -273,7 +273,7 @@ mod tests {
     #[test]
     fn create_new_writes_source_and_desc() {
         let (_dir, problem) = temp_problem("p");
-        SolutionDescription::create_new("main.cpp".to_string(), &problem.path).unwrap();
+        SolutionDescription::create_new(&problem.path, "main.cpp".to_string()).unwrap();
 
         assert!(problem.path.join(SOLUTIONS_PATH).join("main.cpp").exists());
 
@@ -290,7 +290,7 @@ mod tests {
         let source_file = source_dir.path().join("brute.cpp");
         std::fs::write(&source_file, "int main(){}").unwrap();
 
-        SolutionDescription::create_from_existing(source_file, &problem.path).unwrap();
+        SolutionDescription::create_from_existing(&problem.path, source_file).unwrap();
 
         let copied = problem.path.join(SOLUTIONS_PATH).join("brute.cpp");
         assert_eq!(std::fs::read_to_string(copied).unwrap(), "int main(){}");
@@ -343,8 +343,8 @@ mod tests {
     #[test]
     fn change_tag_to_main_demotes_previous_main() {
         let (_dir, problem) = temp_problem("p");
-        SolutionDescription::create_new("a.cpp".to_string(), &problem.path).unwrap();
-        SolutionDescription::create_new("b.cpp".to_string(), &problem.path).unwrap();
+        SolutionDescription::create_new(&problem.path, "a.cpp".to_string()).unwrap();
+        SolutionDescription::create_new(&problem.path, "b.cpp".to_string()).unwrap();
 
         SolutionDescription::change_tag(&problem.path, "a.cpp", SolutionTag::Main).unwrap();
         let descs = SolutionDescription::change_tag(&problem.path, "b.cpp", SolutionTag::Main).unwrap();
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn delete_solution_removes_source_and_desc() {
         let (_dir, problem) = temp_problem("p");
-        SolutionDescription::create_new("a.cpp".to_string(), &problem.path).unwrap();
+        SolutionDescription::create_new(&problem.path, "a.cpp".to_string()).unwrap();
 
         SolutionDescription::delete_solution(&problem.path, "a.cpp".to_string()).unwrap();
 

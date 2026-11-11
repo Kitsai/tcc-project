@@ -32,7 +32,7 @@ pub fn create_validator_test(
     test: ValidatorTestCreateDto,
     state: State<ProblemManager>,
 ) -> AppResult<()> {
-    ValidatorTest::create(test, &state.get_current_path()?)
+    ValidatorTest::create(&state.get_current_path()?, test)
 }
 
 #[tauri::command]

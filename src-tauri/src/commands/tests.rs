@@ -28,24 +28,18 @@ pub fn get_next_test_id(state: State<ProblemManager>) -> AppResult<u16> {
 
 #[tauri::command]
 pub fn create_test(test: TestDefinitionCreateDto, state: State<ProblemManager>) -> AppResult<()> {
-    TestDefinition::create(test, &state.get_current_path()?)?;
+    TestDefinition::create(&state.get_current_path()?, test)?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn edit_test(dto: TestDefinitionEditDto, state: State<ProblemManager>) -> AppResult<TestDefinition> {
-    let path = TestDefinition::path(&state.get_current_path()?, dto.id);
-
-    let mut current = TestDefinition::load(&path)?;
-    current.edit(dto);
-    current.save(&path)?;
-
-    Ok(current)
+    TestDefinition::update(&state.get_current_path()?, dto)
 }
 
 #[tauri::command]
 pub fn delete_test(id: u16, problem: State<ProblemManager>) -> AppResult<()> {
-    TestDefinition::delete(id, &problem.get_current_path()?)
+    TestDefinition::delete(&problem.get_current_path()?, id)
 }
 
 #[tauri::command]
@@ -100,7 +94,7 @@ pub fn import_generated_tests(
             example: false,
             description: format!("Generated: {}", file.name),
         };
-        created.push(TestDefinition::create(dto, &problem_path)?);
+        created.push(TestDefinition::create(&problem_path, dto)?);
     }
 
     Ok(created)

@@ -68,7 +68,7 @@ impl TestDefinition {
         next_available_id(&problem_path.join(TESTS_PATH))
     }
 
-    pub fn create(dto: TestDefinitionCreateDto, problem_path: &Path) -> AppResult<Self> {
+    pub fn create(problem_path: &Path, dto: TestDefinitionCreateDto) -> AppResult<Self> {
         let path = Self::path(problem_path, dto.id);
 
         if path.exists() {
@@ -88,6 +88,29 @@ impl TestDefinition {
         test.save(&path)?;
 
         Ok(test)
+    }
+
+    /// Applies `dto` to the stored test with the same id and returns the
+    /// updated test.
+    pub fn update(problem_path: &Path, dto: TestDefinitionEditDto) -> AppResult<Self> {
+        if !Self::exists(problem_path, dto.id) {
+            return Err(AppError::Default(format!(
+                "Test with id {} does not exist",
+                dto.id
+            )));
+        }
+
+        let path = Self::path(problem_path, dto.id);
+        let mut current = Self::load(&path)?;
+
+        current.edit(dto);
+        current.save(&path)?;
+
+        Ok(current)
+    }
+
+    pub fn exists(problem_path: &Path, id: u16) -> bool {
+        Self::path(problem_path, id).exists()
     }
 
     pub fn edit(&mut self, dto: TestDefinitionEditDto) {
@@ -110,7 +133,7 @@ impl TestDefinition {
         Ok(ret)
     }
 
-    pub fn delete(id: u16, problem_path: &Path) -> AppResult<()> {
+    pub fn delete(problem_path: &Path, id: u16) -> AppResult<()> {
         fs::delete_file(&Self::path(problem_path, id))
     }
 
@@ -306,9 +329,57 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
         assert_eq!(TestDefinition::next_id(&problem.path), 1);
 
-        TestDefinition::create(create_dto(1), &problem.path).unwrap();
-        TestDefinition::create(create_dto(3), &problem.path).unwrap();
+        TestDefinition::create(&problem.path, create_dto(1)).unwrap();
+        TestDefinition::create(&problem.path, create_dto(3)).unwrap();
 
         assert_eq!(TestDefinition::next_id(&problem.path), 2);
+    }
+
+    fn edit_dto(id: u16) -> TestDefinitionEditDto {
+        TestDefinitionEditDto {
+            id,
+            test_type: TestType::Script,
+            content: "  gen 10  ".to_string(),
+            example: true,
+            description: "  big  ".to_string(),
+        }
+    }
+
+    #[test]
+    fn update_replaces_the_stored_fields_and_returns_the_new_test() {
+        let (_dir, problem) = temp_problem("p");
+        TestDefinition::create(&problem.path, create_dto(1)).unwrap();
+
+        let updated = TestDefinition::update(&problem.path, edit_dto(1)).unwrap();
+
+        assert!(matches!(updated.test_type, TestType::Script));
+        assert_eq!(updated.content, "gen 10");
+        assert_eq!(updated.description, "big");
+        assert!(updated.example);
+
+        let stored = TestDefinition::load(&TestDefinition::path(&problem.path, 1)).unwrap();
+        assert_eq!(stored.content, "gen 10");
+        assert!(stored.example);
+    }
+
+    #[test]
+    fn update_of_a_missing_test_is_an_error_and_creates_nothing() {
+        let (_dir, problem) = temp_problem("p");
+
+        let err = TestDefinition::update(&problem.path, edit_dto(4)).err().unwrap();
+
+        assert!(err.to_string().contains("does not exist"));
+        assert!(TestDefinition::get_all(&problem.path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn exists_tells_whether_the_test_is_stored() {
+        let (_dir, problem) = temp_problem("p");
+        assert!(!TestDefinition::exists(&problem.path, 1));
+
+        TestDefinition::create(&problem.path, create_dto(1)).unwrap();
+
+        assert!(TestDefinition::exists(&problem.path, 1));
+        assert!(!TestDefinition::exists(&problem.path, 2));
     }
 }

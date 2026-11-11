@@ -64,7 +64,7 @@ impl ValidatorTest {
         }
     }
 
-    pub fn create(dto: ValidatorTestCreateDto, problem_path: &Path) -> AppResult<()> {
+    pub fn create(problem_path: &Path, dto: ValidatorTestCreateDto) -> AppResult<()> {
         let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
         if dto.mult {
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn create_single_test_writes_file() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
         let tests = ValidatorTest::get_all(&problem.path).unwrap();
         assert_eq!(tests.len(), 1);
@@ -313,16 +313,16 @@ mod tests {
     #[test]
     fn create_rejects_duplicate_id() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
-        let err = ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap_err();
+        let err = ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap_err();
         assert!(err.to_string().contains("already exists"));
     }
 
     #[test]
     fn create_mult_splits_batch_and_skips_taken_ids() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(2, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(2, "VALID")).unwrap();
 
         let dto = ValidatorTestCreateDto {
             id: 1,
@@ -330,7 +330,7 @@ mod tests {
             input: "a===b".to_string(),
             verdict: "VALID\nINVALID".to_string(),
         };
-        ValidatorTest::create(dto, &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, dto).unwrap();
 
         let mut tests = ValidatorTest::get_all(&problem.path).unwrap();
         tests.sort_by_key(|t| t.id);
@@ -348,14 +348,14 @@ mod tests {
             verdict: "VALID".to_string(),
         };
 
-        let err = ValidatorTest::create(dto, &problem.path).unwrap_err();
+        let err = ValidatorTest::create(&problem.path, dto).unwrap_err();
         assert!(err.to_string().contains("same number of entries"));
     }
 
     #[tokio::test]
     async fn run_all_maps_exit_codes_to_results_and_persists() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
         let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::exit_code(1));
         let emitter = RecordingEmitter::default();
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn update_replaces_the_stored_fields() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
         ValidatorTest::update(&problem.path, edit_dto(1, "INVALID")).unwrap();
 
@@ -410,7 +410,7 @@ mod tests {
     #[test]
     fn update_with_an_invalid_verdict_keeps_the_stored_test() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
         assert!(ValidatorTest::update(&problem.path, edit_dto(1, "MAYBE")).is_err());
 
@@ -424,7 +424,7 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
         assert!(!ValidatorTest::exists(&problem.path, 1));
 
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
         assert!(ValidatorTest::exists(&problem.path, 1));
         assert!(!ValidatorTest::exists(&problem.path, 2));
@@ -433,8 +433,8 @@ mod tests {
     #[test]
     fn delete_removes_only_the_given_test() {
         let (_dir, problem) = temp_problem("p");
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
-        ValidatorTest::create(create_dto(2, "INVALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(2, "INVALID")).unwrap();
 
         ValidatorTest::delete(&problem.path, 1).unwrap();
 
@@ -456,7 +456,7 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
         assert_eq!(ValidatorTest::next_id(&problem.path), 1);
 
-        ValidatorTest::create(create_dto(1, "VALID"), &problem.path).unwrap();
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
 
         assert_eq!(ValidatorTest::next_id(&problem.path), 2);
     }

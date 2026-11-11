@@ -415,6 +415,7 @@ mod tests {
 
     fn create_manual(problem_path: &Path, id: u16, content: &str) -> TestDefinition {
         TestDefinition::create(
+            problem_path,
             TestDefinitionCreateDto {
                 id,
                 test_type: TestType::Manual,
@@ -422,7 +423,6 @@ mod tests {
                 example: false,
                 description: String::new(),
             },
-            problem_path,
         )
         .unwrap()
     }
@@ -865,6 +865,7 @@ mod tests {
         // A Script test whose generator produces 4 files in one run
         // (testlib's startTest multi-file convention), marked as an example.
         TestDefinition::create(
+            &problem.path,
             TestDefinitionCreateDto {
                 id: 1,
                 test_type: TestType::Script,
@@ -872,7 +873,6 @@ mod tests {
                 example: true,
                 description: String::new(),
             },
-            &problem.path,
         )
         .unwrap();
 
@@ -911,6 +911,7 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
 
         TestDefinition::create(
+            &problem.path,
             TestDefinitionCreateDto {
                 id: 1,
                 test_type: TestType::Manual,
@@ -918,7 +919,6 @@ mod tests {
                 example: true,
                 description: String::new(),
             },
-            &problem.path,
         )
         .unwrap();
 

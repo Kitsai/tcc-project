@@ -29,7 +29,7 @@ pub fn create_checker_test(
     test: CheckerTestCreateDto,
     state: State<ProblemManager>,
 ) -> AppResult<()> {
-    CheckerTest::create(test, &state.get_current_path()?)
+    CheckerTest::create(&state.get_current_path()?, test)
 }
 
 #[tauri::command]

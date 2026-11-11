@@ -36,7 +36,7 @@ pub async fn create_new_solution(
 ) -> AppResult<()> {
     let problem_path = problem.get_current_path()?;
 
-    SolutionDescription::create_new(file_name, &problem_path)
+    SolutionDescription::create_new(&problem_path, file_name)
 }
 
 #[tauri::command]
@@ -47,7 +47,7 @@ pub async fn add_solution_files(
     let problem_path = problem.get_current_path()?;
 
     for path in paths {
-        SolutionDescription::create_from_existing(path, &problem_path)?;
+        SolutionDescription::create_from_existing(&problem_path, path)?;
     }
     Ok(())
 }

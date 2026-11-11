@@ -69,7 +69,7 @@ impl CheckerTest {
         }
     }
 
-    pub fn create(dto: CheckerTestCreateDto, problem_path: &Path) -> AppResult<()> {
+    pub fn create(problem_path: &Path, dto: CheckerTestCreateDto) -> AppResult<()> {
         let tests_path = problem_path.join(CHECKER_TESTS_PATH);
 
         if dto.mult {
@@ -409,7 +409,7 @@ mod tests {
     #[test]
     fn create_single_test_writes_file() {
         let (_dir, problem) = temp_problem("p");
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
         let tests = CheckerTest::get_all(&problem.path).unwrap();
         assert_eq!(tests.len(), 1);
@@ -419,9 +419,9 @@ mod tests {
     #[test]
     fn create_rejects_duplicate_id() {
         let (_dir, problem) = temp_problem("p");
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
-        let err = CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap_err();
+        let err = CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap_err();
         assert!(err.to_string().contains("already exists"));
     }
 
@@ -429,7 +429,7 @@ mod tests {
     fn create_mult_splits_batch_and_skips_taken_ids() {
         let (_dir, problem) = temp_problem("p");
         // pre-occupy id 2 so the batch below has to skip past it
-        CheckerTest::create(create_dto(2, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(2, "OK")).unwrap();
 
         let dto = CheckerTestCreateDto {
             id: 1,
@@ -439,7 +439,7 @@ mod tests {
             answer: "aa===ab".to_string(),
             verdict: "OK\nWA".to_string(),
         };
-        CheckerTest::create(dto, &problem.path).unwrap();
+        CheckerTest::create(&problem.path, dto).unwrap();
 
         let mut tests = CheckerTest::get_all(&problem.path).unwrap();
         tests.sort_by_key(|t| t.id);
@@ -459,14 +459,14 @@ mod tests {
             verdict: "OK\nWA".to_string(),
         };
 
-        let err = CheckerTest::create(dto, &problem.path).unwrap_err();
+        let err = CheckerTest::create(&problem.path, dto).unwrap_err();
         assert!(err.to_string().contains("same number of entries"));
     }
 
     #[tokio::test]
     async fn run_all_maps_exit_codes_to_verdicts_and_persists() {
         let (_dir, problem) = temp_problem("p");
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
         let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::exit_code(1));
         let emitter = RecordingEmitter::default();
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn update_replaces_the_stored_fields() {
         let (_dir, problem) = temp_problem("p");
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
         CheckerTest::update(&problem.path, edit_dto(1, "WA")).unwrap();
 
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn update_with_an_invalid_verdict_keeps_the_stored_test() {
         let (_dir, problem) = temp_problem("p");
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
         assert!(CheckerTest::update(&problem.path, edit_dto(1, "NOT_A_VERDICT")).is_err());
 
@@ -539,7 +539,7 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
         assert!(!CheckerTest::exists(&problem.path, 1));
 
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
         assert!(CheckerTest::exists(&problem.path, 1));
         assert!(!CheckerTest::exists(&problem.path, 2));
@@ -548,8 +548,8 @@ mod tests {
     #[test]
     fn delete_removes_only_the_given_test() {
         let (_dir, problem) = temp_problem("p");
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
-        CheckerTest::create(create_dto(2, "WA"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
+        CheckerTest::create(&problem.path, create_dto(2, "WA")).unwrap();
 
         CheckerTest::delete(&problem.path, 1).unwrap();
 
@@ -571,7 +571,7 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
         assert_eq!(CheckerTest::next_id(&problem.path), 1);
 
-        CheckerTest::create(create_dto(1, "OK"), &problem.path).unwrap();
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
 
         assert_eq!(CheckerTest::next_id(&problem.path), 2);
     }

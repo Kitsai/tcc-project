@@ -102,7 +102,7 @@ fn import_solutions(source: &Path, dest_path: &Path, parsed: &PolygonProblem, wa
             continue;
         };
 
-        if let Err(e) = SolutionDescription::create_from_existing(source.join(rel), dest_path) {
+        if let Err(e) = SolutionDescription::create_from_existing(dest_path, source.join(rel)) {
             warnings.push(format!("Failed to import solution '{file_name}': {e}"));
             continue;
         }
