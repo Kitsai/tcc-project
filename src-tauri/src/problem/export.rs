@@ -11,7 +11,7 @@ use crate::{
     error::{AppError, AppResult, FsOperation},
     fs::FsResultExt,
     problem::{PreviewOutcome, ProgrammingLanguage, TestDefinition},
-    runner::{ExecutionOptions, Runner},
+    runner::{ExecutionInfo, ExecutionOptions, ExecutionRequest, Runner},
     util::{PathExt, Persistant, ResultExt, SerdePersistant},
 };
 
@@ -172,30 +172,19 @@ pub async fn validate_export_tests(
     validator_path: &Path,
     runner: Arc<dyn Runner>,
 ) -> AppResult<u16> {
-    let manifest = ExportManifest::load(&get_export_manifest_path(problem_path))?;
-    let export_dir = get_export_dir(problem_path);
-
-    let language = ProgrammingLanguage::get_from_path(validator_path).ok_or_else(|| {
-        AppError::InvalidLanguage {
-            path: validator_path.to_owned(),
-        }
-    })?;
-    let request_template = language
-        .resolve(validator_path, problem_path)
-        .into_request();
-
+    let ctx = StageContext::load(problem_path, validator_path)?;
     log::debug!(
         "[validate_export_tests] problem_path={:?} validator_path={:?} test_count={}",
         problem_path,
         validator_path,
-        manifest.tests.len()
+        ctx.manifest.tests.len()
     );
 
-    for test in &manifest.tests {
+    for test in &ctx.manifest.tests {
         let runner = runner.clone();
-        let mut request = request_template.clone();
+        let mut request = ctx.request_template.clone();
 
-        let path = export_test_path(&export_dir, test.final_id);
+        let path = export_test_path(&ctx.export_dir, test.final_id);
         let input = std::fs::read_to_string(&path).fs_context(FsOperation::Read, &path)?;
 
         request.with_normalized_input(&input);
@@ -203,38 +192,18 @@ pub async fn validate_export_tests(
         let result = runner.execute(request).await.err_to_string()?;
 
         if result.exit_code != 0 {
-            let comment = if !result.stderr.trim().is_empty() {
-                result.stderr.trim()
-            } else {
-                result.stdout.trim()
-            };
-
-            log::debug!(
-                "[validate_export_tests] test final_id={} source_test_id={} failed: {}",
-                test.final_id,
-                test.source_test_id,
-                comment
-            );
-
-            return Err(AppError::from(format!(
-                "Test {} (from definition #{}) failed validation: {}",
-                test.final_id, test.source_test_id, comment
-            )));
+            return Err(stage_failure(test, "failed validation", &result, false));
         }
     }
 
     log::debug!(
         "[validate_export_tests] done, {} test(s) validated",
-        manifest.tests.len()
+        ctx.manifest.tests.len()
     );
 
-    Ok(manifest.tests.len() as u16)
+    Ok(ctx.manifest.tests.len() as u16)
 }
 
-/// Safety-net timeout for running the main solution during `solve` — not a
-/// real per-problem time limit (the app doesn't have that concept yet), just
-/// a bound so a buggy solution (e.g. an infinite loop) can't hang the whole
-/// pipeline with no way to cancel from the UI.
 const SOLVE_TIMEOUT_MS: u64 = 10_000;
 
 pub async fn solve_export_tests(
@@ -242,16 +211,9 @@ pub async fn solve_export_tests(
     solution_path: &Path,
     runner: Arc<dyn Runner>,
 ) -> AppResult<u16> {
-    let manifest = ExportManifest::load(&get_export_manifest_path(problem_path))?;
-    let export_dir = get_export_dir(problem_path);
+    let mut ctx = StageContext::load(problem_path, solution_path)?;
 
-    let language = ProgrammingLanguage::get_from_path(solution_path).ok_or_else(|| {
-        AppError::InvalidLanguage {
-            path: solution_path.to_owned(),
-        }
-    })?;
-    let mut request_template = language.resolve(solution_path, problem_path).into_request();
-    request_template.with_options(ExecutionOptions {
+    ctx.request_template.with_options(ExecutionOptions {
         timeout: Some(SOLVE_TIMEOUT_MS),
         memory_limit: None,
     });
@@ -260,14 +222,14 @@ pub async fn solve_export_tests(
         "[solve_export_tests] problem_path={:?} solution_path={:?} test_count={}",
         problem_path,
         solution_path,
-        manifest.tests.len()
+        ctx.manifest.tests.len()
     );
 
-    for test in &manifest.tests {
+    for test in &ctx.manifest.tests {
         let runner = runner.clone();
-        let mut request = request_template.clone();
+        let mut request = ctx.request_template.clone();
 
-        let path = export_test_path(&export_dir, test.final_id);
+        let path = export_test_path(&ctx.export_dir, test.final_id);
         let input = std::fs::read_to_string(&path).fs_context(FsOperation::Read, &path)?;
 
         request.with_normalized_input(&input);
@@ -275,73 +237,47 @@ pub async fn solve_export_tests(
         let result = runner.execute(request).await.err_to_string()?;
 
         if result.exit_code != 0 {
-            let comment = if !result.stderr.trim().is_empty() {
-                result.stderr.trim()
-            } else {
-                result.stdout.trim()
-            };
-
-            log::debug!(
-                "[solve_export_tests] test final_id={} source_test_id={} failed: {}",
-                test.final_id,
-                test.source_test_id,
-                comment
-            );
-
-            return Err(AppError::from(format!(
-                "Test {} (from definition #{}) failed while running the main solution: {}",
-                test.final_id, test.source_test_id, comment
-            )));
+            return Err(stage_failure(
+                test,
+                "failed while running the main solution",
+                &result,
+                false,
+            ));
         }
 
-        let answer_path = export_answer_path(&export_dir, test.final_id);
+        let answer_path = export_answer_path(&ctx.export_dir, test.final_id);
         std::fs::write(&answer_path, &result.stdout)
             .fs_context(FsOperation::Write, &answer_path)?;
     }
 
     log::debug!(
         "[solve_export_tests] done, {} test(s) solved",
-        manifest.tests.len()
+        ctx.manifest.tests.len()
     );
 
-    Ok(manifest.tests.len() as u16)
+    Ok(ctx.manifest.tests.len() as u16)
 }
 
-/// Self-checks every test: runs the checker with the main solution's own
-/// output used as *both* the "output" and "answer" arguments. This isn't
-/// judging correctness (that's near-tautological when output and answer are
-/// the same file) — it's a smoke test that the checker survives running
-/// against the real generated data, not just the hand-written meta-tests in
-/// `CheckerTest`. Requires `solve_export_tests` to have already run (the
-/// `.a` files must exist).
 pub async fn check_export_tests(
     problem_path: &Path,
     checker_path: &Path,
     runner: Arc<dyn Runner>,
 ) -> AppResult<u16> {
-    let manifest = ExportManifest::load(&get_export_manifest_path(problem_path))?;
-    let export_dir = get_export_dir(problem_path);
-
-    let language = ProgrammingLanguage::get_from_path(checker_path).ok_or_else(|| {
-        AppError::InvalidLanguage {
-            path: checker_path.to_owned(),
-        }
-    })?;
-    let request_template = language.resolve(checker_path, problem_path).into_request();
+    let ctx = StageContext::load(problem_path, checker_path)?;
 
     log::debug!(
         "[check_export_tests] problem_path={:?} checker_path={:?} test_count={}",
         problem_path,
         checker_path,
-        manifest.tests.len()
+        ctx.manifest.tests.len()
     );
 
-    for test in &manifest.tests {
+    for test in &ctx.manifest.tests {
         let runner = runner.clone();
-        let mut request = request_template.clone();
+        let mut request = ctx.request_template.clone();
 
-        let input_path = export_test_path(&export_dir, test.final_id);
-        let answer_path = export_answer_path(&export_dir, test.final_id);
+        let input_path = export_test_path(&ctx.export_dir, test.final_id);
+        let answer_path = export_answer_path(&ctx.export_dir, test.final_id);
 
         request.with_args(&[
             input_path.to_string_lossy().to_string(),
@@ -352,37 +288,16 @@ pub async fn check_export_tests(
         let result = runner.execute(request).await.err_to_string()?;
 
         if result.exit_code != 0 {
-            // testlib checkers print their verdict message via quitf(),
-            // which writes to stdout — matching CheckerTest::run_all's
-            // stdout-first convention (opposite of validate/solve, where
-            // the message is on stderr).
-            let comment = if !result.stdout.trim().is_empty() {
-                result.stdout.trim()
-            } else {
-                result.stderr.trim()
-            };
-
-            log::debug!(
-                "[check_export_tests] test final_id={} source_test_id={} failed: exit_code={} {}",
-                test.final_id,
-                test.source_test_id,
-                result.exit_code,
-                comment
-            );
-
-            return Err(AppError::from(format!(
-                "Test {} (from definition #{}) failed checking: {}",
-                test.final_id, test.source_test_id, comment
-            )));
+            return Err(stage_failure(test, "failed checking", &result, true));
         }
     }
 
     log::debug!(
         "[check_export_tests] done, {} test(s) checked",
-        manifest.tests.len()
+        ctx.manifest.tests.len()
     );
 
-    Ok(manifest.tests.len() as u16)
+    Ok(ctx.manifest.tests.len() as u16)
 }
 
 pub fn get_export_dir(problem_path: &Path) -> PathBuf {
@@ -393,6 +308,55 @@ pub fn get_export_manifest_path(problem_path: &Path) -> PathBuf {
     problem_path
         .join(EXPORT_TESTS_PATH)
         .join(EXPORT_MANIFEST_FILENAME)
+}
+
+struct StageContext {
+    manifest: ExportManifest,
+    export_dir: PathBuf,
+    request_template: ExecutionRequest,
+}
+
+impl StageContext {
+    fn load(problem_path: &Path, program_path: &Path) -> AppResult<Self> {
+        let manifest = ExportManifest::load(&get_export_manifest_path(problem_path))?;
+        let export_dir = get_export_dir(problem_path);
+
+        let language = ProgrammingLanguage::get_from_path(program_path).ok_or_else(|| {
+            AppError::InvalidLanguage {
+                path: program_path.to_owned(),
+            }
+        })?;
+        let request_template = language.resolve(program_path, problem_path).into_request();
+
+        Ok(Self {
+            manifest,
+            export_dir,
+            request_template,
+        })
+    }
+}
+
+fn stage_failure(
+    test: &ExportManifestEntry,
+    what: &str,
+    result: &ExecutionInfo,
+    prefer_stdout: bool,
+) -> AppError {
+    let (first, second) = if prefer_stdout {
+        (&result.stdout, &result.stderr)
+    } else {
+        (&result.stderr, &result.stdout)
+    };
+    let comment = if !first.trim().is_empty() {
+        first.trim()
+    } else {
+        second.trim()
+    };
+
+    AppError::from(format!(
+        "Test {} (from definition #{}) {what}: {comment}",
+        test.final_id, test.source_test_id
+    ))
 }
 
 #[cfg(test)]
@@ -411,6 +375,52 @@ mod tests {
         assert_eq!(export_test_path(dir, 4), dir.join("04"));
         assert_eq!(export_answer_path(dir, 4), dir.join("04.a"));
         assert_eq!(export_answer_path(dir, 120), dir.join("120.a"));
+    }
+
+    fn entry(final_id: u16, source_test_id: u16) -> ExportManifestEntry {
+        ExportManifestEntry {
+            final_id,
+            source_test_id,
+            example: false,
+        }
+    }
+
+    fn output(stdout: &str, stderr: &str) -> ExecutionInfo {
+        ExecutionInfo {
+            stdout: stdout.to_string(),
+            stderr: stderr.to_string(),
+            execution_time: std::time::Duration::default(),
+            exit_code: 1,
+        }
+    }
+
+    #[test]
+    fn stage_failure_message_names_the_test_its_source_and_the_stage() {
+        let err = stage_failure(
+            &entry(3, 7),
+            "failed checking",
+            &output("", "\n  boom  \n"),
+            false,
+        );
+
+        assert_eq!(
+            err.to_string(),
+            "Test 3 (from definition #7) failed checking: boom"
+        );
+    }
+
+    #[test]
+    fn stage_failure_prefers_the_requested_stream_and_falls_back_to_the_other() {
+        let comment = |stdout: &str, stderr: &str, prefer_stdout: bool| {
+            let message = stage_failure(&entry(1, 1), "failed", &output(stdout, stderr), prefer_stdout)
+                .to_string();
+            message.strip_prefix("Test 1 (from definition #1) failed: ").unwrap().to_string()
+        };
+
+        assert_eq!(comment("out", "err", false), "err");
+        assert_eq!(comment("out", "  ", false), "out");
+        assert_eq!(comment("out", "err", true), "out");
+        assert_eq!(comment("", "err", true), "err");
     }
 
     fn create_manual(problem_path: &Path, id: u16, content: &str) -> TestDefinition {
