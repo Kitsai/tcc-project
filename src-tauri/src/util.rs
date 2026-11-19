@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fmt::Display,
     fs,
     path::{Path, PathBuf},
@@ -10,7 +11,7 @@ use tauri::{
     AppHandle, Emitter,
 };
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 pub trait EventEmitter: Clone + Send + 'static {
     fn emit<S: Serialize + Clone + Send + 'static>(&self, event: &str, payload: S);
@@ -63,7 +64,13 @@ where
 }
 
 pub fn next_available_id(path: &Path) -> u16 {
-    let mut existing: std::collections::HashSet<u16> = std::collections::HashSet::new();
+    let existing = used_ids(path);
+
+    (1u16..).find(|id| !existing.contains(id)).unwrap_or(1)
+}
+
+fn used_ids(path: &Path) -> HashSet<u16> {
+    let mut existing = HashSet::new();
 
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
@@ -77,7 +84,27 @@ pub fn next_available_id(path: &Path) -> u16 {
         }
     }
 
-    (1u16..).find(|id| !existing.contains(id)).unwrap_or(1)
+    existing
+}
+
+/// `count` ids not used by any file in `path`, in increasing order, searching
+/// from `first_id` upwards. Writes nothing. Fails if fewer than `count` free
+/// ids remain (the highest id, `u16::MAX`, is never handed out).
+pub fn assign_ids(path: &Path, first_id: u16, count: usize) -> AppResult<Vec<u16>> {
+    let used = used_ids(path);
+    let ids: Vec<u16> = (first_id..u16::MAX)
+        .filter(|id| !used.contains(id))
+        .take(count)
+        .collect();
+
+    if ids.len() < count {
+        return Err(AppError::from(format!(
+            "Not enough free test ids from {first_id} upwards: needed {count}, found {}",
+            ids.len()
+        )));
+    }
+
+    Ok(ids)
 }
 
 pub fn num_cpus() -> usize {
@@ -260,5 +287,63 @@ mod tests {
         let borrowed: &Path = &base_path;
 
         assert_eq!(borrowed.join_id(7), base_path.join("07"));
+    }
+
+    /// A directory holding one (empty) file per id, named the way tests are
+    /// stored on disk (`01`, `02`, ...). Kept alive by the returned `TempDir`.
+    fn dir_with_ids(ids: &[u16]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        for id in ids {
+            fs::write(dir.path().join_id(*id), "").unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn assign_ids_in_an_empty_dir_starts_at_first_id() {
+        let dir = dir_with_ids(&[]);
+
+        assert_eq!(assign_ids(dir.path(), 1, 3).unwrap(), [1, 2, 3]);
+        assert_eq!(assign_ids(dir.path(), 5, 2).unwrap(), [5, 6]);
+    }
+
+    #[test]
+    fn assign_ids_skips_ids_already_in_use() {
+        let dir = dir_with_ids(&[2, 5]);
+
+        assert_eq!(assign_ids(dir.path(), 1, 3).unwrap(), [1, 3, 4]);
+        assert_eq!(assign_ids(dir.path(), 1, 4).unwrap(), [1, 3, 4, 6]);
+    }
+
+    #[test]
+    fn assign_ids_moves_on_when_first_id_is_taken() {
+        let dir = dir_with_ids(&[1, 2]);
+
+        assert_eq!(assign_ids(dir.path(), 1, 2).unwrap(), [3, 4]);
+    }
+
+    #[test]
+    fn assign_ids_never_goes_below_first_id() {
+        // ids 1 and 2 are free, but the search starts at 3
+        let dir = dir_with_ids(&[3]);
+
+        assert_eq!(assign_ids(dir.path(), 3, 2).unwrap(), [4, 5]);
+    }
+
+    #[test]
+    fn assign_ids_with_count_zero_is_empty() {
+        let dir = dir_with_ids(&[1]);
+
+        assert!(assign_ids(dir.path(), 1, 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn assign_ids_fails_when_there_are_not_enough_free_ids() {
+        let dir = dir_with_ids(&[]);
+
+        let err = assign_ids(dir.path(), u16::MAX - 1, 2).unwrap_err();
+
+        assert!(err.to_string().contains("needed 2, found 1"));
+        assert!(assign_ids(dir.path(), u16::MAX, 1).is_err());
     }
 }

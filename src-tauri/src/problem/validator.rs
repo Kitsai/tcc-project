@@ -8,7 +8,10 @@ use crate::{
     fs::delete_file,
     problem::ProgrammingLanguage,
     runner::Runner,
-    util::{next_available_id, EventEmitter, PathExt, Persistant, ResultExt, SerdePersistant},
+    util::{
+        assign_ids, next_available_id, EventEmitter, PathExt, Persistant, ResultExt,
+        SerdePersistant,
+    },
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -69,7 +72,11 @@ impl ValidatorTest {
 
         if dto.mult {
             let inputs: Vec<&str> = dto.input.split(MULT_SEPARATOR).collect();
-            let verdicts: Vec<&str> = dto.verdict.lines().collect();
+            let verdicts: Vec<ValidatorTestResult> = dto
+                .verdict
+                .lines()
+                .map(|v| v.parse())
+                .collect::<Result<_, _>>()?;
 
             if inputs.len() != verdicts.len() {
                 return Err(AppError::from(
@@ -77,20 +84,11 @@ impl ValidatorTest {
                 ));
             }
 
-            let mut current_id = dto.id;
-            let mut current_path = tests_path.join_id(dto.id);
+            let ids = assign_ids(&tests_path, dto.id, inputs.len())?;
 
-            for (input, verdict) in inputs.iter().zip(verdicts.iter()) {
-                let new_test = ValidatorTest::new(current_id, input, verdict.parse()?);
-                new_test.save(&current_path)?;
-
-                current_id += 1;
-                current_path = tests_path.join_id(current_id);
-
-                if current_path.exists() {
-                    current_id = next_available_id(&tests_path);
-                    current_path = tests_path.join_id(current_id);
-                }
+            for ((id, input), verdict) in ids.into_iter().zip(inputs).zip(verdicts) {
+                let new_test = ValidatorTest::new(id, input, verdict);
+                new_test.save(&tests_path.join_id(id))?;
             }
         } else {
             let path = tests_path.join_id(dto.id);
@@ -350,6 +348,46 @@ mod tests {
 
         let err = ValidatorTest::create(&problem.path, dto).unwrap_err();
         assert!(err.to_string().contains("same number of entries"));
+    }
+
+    #[test]
+    fn create_mult_with_an_invalid_verdict_stores_nothing() {
+        let (_dir, problem) = temp_problem("p");
+        let dto = ValidatorTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b===c".to_string(),
+            verdict: "VALID\nMAYBE\nINVALID".to_string(),
+        };
+
+        assert!(ValidatorTest::create(&problem.path, dto).is_err());
+
+        // the valid first entry must not have been written before the bad one failed
+        assert!(ValidatorTest::get_all(&problem.path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn create_mult_does_not_overwrite_a_test_at_the_first_id() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
+
+        let dto = ValidatorTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b".to_string(),
+            verdict: "INVALID\nINVALID".to_string(),
+        };
+        ValidatorTest::create(&problem.path, dto).unwrap();
+
+        let mut tests = ValidatorTest::get_all(&problem.path).unwrap();
+        tests.sort_by_key(|t| t.id);
+
+        // the original test is untouched and the batch went to the next free ids
+        assert_eq!(tests.iter().map(|t| t.id).collect::<Vec<_>>(), [1, 2, 3]);
+        assert_eq!(tests[0].input, "in");
+        assert!(matches!(tests[0].expected, ValidatorTestResult::Valid));
+        assert_eq!(tests[1].input, "a");
+        assert_eq!(tests[2].input, "b");
     }
 
     #[tokio::test]

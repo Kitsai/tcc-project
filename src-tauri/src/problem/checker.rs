@@ -11,7 +11,10 @@ use crate::{
     fs::delete_file,
     problem::ProgrammingLanguage,
     runner::Runner,
-    util::{next_available_id, EventEmitter, PathExt, Persistant, ResultExt, SerdePersistant},
+    util::{
+        assign_ids, next_available_id, EventEmitter, PathExt, Persistant, ResultExt,
+        SerdePersistant,
+    },
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -76,7 +79,11 @@ impl CheckerTest {
             let inputs: Vec<&str> = dto.input.split(MULT_SEPARATOR).collect();
             let outputs: Vec<&str> = dto.output.split(MULT_SEPARATOR).collect();
             let answers: Vec<&str> = dto.answer.split(MULT_SEPARATOR).collect();
-            let verdicts: Vec<&str> = dto.verdict.lines().collect();
+            let verdicts: Vec<CheckerVerdict> = dto
+                .verdict
+                .lines()
+                .map(|v| v.parse())
+                .collect::<Result<_, _>>()?;
 
             let len = inputs.len();
             if outputs.len() != len || answers.len() != len || verdicts.len() != len {
@@ -85,26 +92,17 @@ impl CheckerTest {
                 ));
             }
 
-            let mut current_id = dto.id;
-            let mut current_path = tests_path.join_id(dto.id);
+            let ids = assign_ids(&tests_path, dto.id, inputs.len())?;
 
-            for (((input, output), answer), verdict) in inputs
-                .iter()
-                .zip(outputs.iter())
-                .zip(answers.iter())
-                .zip(verdicts.iter())
+            for ((((id, input), output), answer), verdict) in ids
+                .into_iter()
+                .zip(inputs)
+                .zip(outputs)
+                .zip(answers)
+                .zip(verdicts)
             {
-                let new_test =
-                    CheckerTest::new(current_id, input, output, answer, verdict.parse()?);
-                new_test.save(&current_path)?;
-
-                current_id += 1;
-                current_path = tests_path.join_id(current_id);
-
-                if current_path.exists() {
-                    current_id = next_available_id(&tests_path);
-                    current_path = tests_path.join_id(current_id);
-                }
+                let new_test = CheckerTest::new(id, input, output, answer, verdict);
+                new_test.save(&tests_path.join_id(id))?;
             }
         } else {
             let path = tests_path.join_id(dto.id);
@@ -461,6 +459,50 @@ mod tests {
 
         let err = CheckerTest::create(&problem.path, dto).unwrap_err();
         assert!(err.to_string().contains("same number of entries"));
+    }
+
+    #[test]
+    fn create_mult_with_an_invalid_verdict_stores_nothing() {
+        let (_dir, problem) = temp_problem("p");
+        let dto = CheckerTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b===c".to_string(),
+            output: "oa===ob===oc".to_string(),
+            answer: "aa===ab===ac".to_string(),
+            verdict: "OK\nNOT_A_VERDICT\nWA".to_string(),
+        };
+
+        assert!(CheckerTest::create(&problem.path, dto).is_err());
+
+        // the valid first entry must not have been written before the bad one failed
+        assert!(CheckerTest::get_all(&problem.path).unwrap().is_empty());
+    }
+
+    #[test]
+    fn create_mult_does_not_overwrite_a_test_at_the_first_id() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
+
+        let dto = CheckerTestCreateDto {
+            id: 1,
+            mult: true,
+            input: "a===b".to_string(),
+            output: "oa===ob".to_string(),
+            answer: "aa===ab".to_string(),
+            verdict: "WA\nWA".to_string(),
+        };
+        CheckerTest::create(&problem.path, dto).unwrap();
+
+        let mut tests = CheckerTest::get_all(&problem.path).unwrap();
+        tests.sort_by_key(|t| t.id);
+
+        // the original test is untouched and the batch went to the next free ids
+        assert_eq!(tests.iter().map(|t| t.id).collect::<Vec<_>>(), [1, 2, 3]);
+        assert_eq!(tests[0].input, "in");
+        assert!(matches!(tests[0].expected, CheckerVerdict::Ok));
+        assert_eq!(tests[1].input, "a");
+        assert_eq!(tests[2].input, "b");
     }
 
     #[tokio::test]
