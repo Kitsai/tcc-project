@@ -1,15 +1,16 @@
-use std::{
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use tempfile::NamedTempFile;
 
 use crate::{
     constants::{CHECKER_TESTS_PATH, MULT_SEPARATOR},
     error::{AppError, AppResult},
-    fs::delete_file,
-    problem::ProgrammingLanguage,
+    fs::{delete_file, write_temp},
+    problem::{
+        meta_tests::{self, run_all, MetaTest, TestRunError},
+        ProgrammingLanguage,
+    },
     runner::Runner,
     util::{
         assign_ids, next_available_id, EventEmitter, PathExt, Persistant, ResultExt,
@@ -179,142 +180,16 @@ impl CheckerTest {
         runner: std::sync::Arc<dyn Runner>,
     ) -> AppResult<()> {
         let tests = Self::get_all(problem_path)?;
-        let tests_path = problem_path.join(CHECKER_TESTS_PATH);
 
-        let language = ProgrammingLanguage::get_from_path(&checker_path).ok_or_else(|| {
-            AppError::InvalidLanguage {
-                path: checker_path.clone(),
-            }
-        })?;
-        let request_template = language.resolve(&checker_path, problem_path).into_request();
+        meta_tests::run_all(problem_path, tests, checker_path, emitter, runner).await
+    }
 
-        log::debug!(
-            "[checker run_all] checker={:?} command={:?} args={:?} tests={}",
-            checker_path,
-            request_template.command,
-            request_template.args,
-            tests.len()
-        );
-
-        let mut handles = Vec::new();
-
-        for test in tests {
-            let runner = runner.clone();
-            let emitter = emitter.clone();
-            let tests_path = tests_path.clone();
-            let mut request = request_template.clone();
-
-            let handle = tokio::spawn(async move {
-                let write_temp = |content: &str| -> Result<tempfile::NamedTempFile, String> {
-                    let mut f = tempfile::NamedTempFile::new().err_to_string()?;
-                    f.write_all(content.as_bytes()).err_to_string()?;
-                    Ok(f)
-                };
-
-                let input_file = match write_temp(&test.input) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        emitter.emit(
-                            "checker_test_error",
-                            CheckerTestError {
-                                id: test.id,
-                                error: e,
-                            },
-                        );
-                        return;
-                    }
-                };
-                let output_file = match write_temp(&test.output) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        emitter.emit(
-                            "checker_test_error",
-                            CheckerTestError {
-                                id: test.id,
-                                error: e,
-                            },
-                        );
-                        return;
-                    }
-                };
-                let answer_file = match write_temp(&test.answer) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        emitter.emit(
-                            "checker_test_error",
-                            CheckerTestError {
-                                id: test.id,
-                                error: e,
-                            },
-                        );
-                        return;
-                    }
-                };
-
-                request.with_args(&[
-                    input_file.path().to_string_lossy().to_string(),
-                    output_file.path().to_string_lossy().to_string(),
-                    answer_file.path().to_string_lossy().to_string(),
-                ]);
-
-                log::debug!("[checker run_all] running test id={}", test.id);
-
-                let (actual, comment) = match runner.execute(request).await {
-                    Err(e) => {
-                        log::debug!("[checker run_all] test id={} runner error: {}", test.id, e);
-                        emitter.emit(
-                            "checker_test_error",
-                            CheckerTestError {
-                                id: test.id,
-                                error: e.to_string(),
-                            },
-                        );
-                        return;
-                    }
-                    Ok(info) => {
-                        log::debug!(
-                            "[checker run_all] test id={} exit={} stdout={:?}",
-                            test.id,
-                            info.exit_code,
-                            info.stdout.trim()
-                        );
-                        let verdict = match info.exit_code {
-                            0 => CheckerVerdict::Ok,
-                            1 => CheckerVerdict::WrongAnswer,
-                            2 => CheckerVerdict::PresentationError,
-                            _ => CheckerVerdict::Crashed,
-                        };
-                        let comment = if !info.stdout.trim().is_empty() {
-                            info.stdout.trim().to_string()
-                        } else {
-                            info.stderr.trim().to_string()
-                        };
-                        (verdict, comment)
-                    }
-                };
-
-                // keep temp files alive until after execution
-                drop(input_file);
-                drop(output_file);
-                drop(answer_file);
-
-                let mut updated = test;
-                updated.set_actual_verdict(actual, comment);
-
-                let path = tests_path.join_id(updated.id);
-                updated.save(&path).ok();
-
-                emitter.emit("checker_test_result", updated);
-            });
-
-            handles.push(handle);
-        }
-
-        for handle in handles {
-            handle.await.ok();
-        }
-
-        Ok(())
+    fn write_temp_files(test: &CheckerTest) -> AppResult<[NamedTempFile; 3]> {
+        Ok([
+            write_temp(&test.input)?,
+            write_temp(&test.output)?,
+            write_temp(&test.answer)?,
+        ])
     }
 
     pub fn exists(problem_path: &Path, id: u16) -> bool {
@@ -326,10 +201,46 @@ impl CheckerTest {
     }
 }
 
-#[derive(Clone, Serialize)]
-pub struct CheckerTestError {
-    pub id: u16,
-    pub error: String,
+impl MetaTest for CheckerTest {
+    const EVENT_PREFIX: &'static str = "checker";
+
+    const TESTS_PATH: &'static str = CHECKER_TESTS_PATH;
+
+    fn id(&self) -> u16 {
+        self.id
+    }
+
+    fn prepare(
+        &self,
+        request: &mut crate::runner::ExecutionRequest,
+    ) -> AppResult<Vec<NamedTempFile>> {
+        let files = Self::write_temp_files(self)?;
+
+        request.with_args(
+            &files
+                .iter()
+                .map(|f| f.path().to_string_lossy().to_string())
+                .collect::<Vec<_>>(),
+        );
+
+        Ok(files.into())
+    }
+
+    fn record(&mut self, result: &crate::runner::ExecutionInfo) {
+        let verdict = match result.exit_code {
+            0 => CheckerVerdict::Ok,
+            1 => CheckerVerdict::WrongAnswer,
+            2 => CheckerVerdict::PresentationError,
+            _ => CheckerVerdict::Crashed,
+        };
+        let comment = if !result.stdout.trim().is_empty() {
+            result.stdout.trim().to_string()
+        } else {
+            result.stderr.trim().to_string()
+        };
+
+        self.set_actual_verdict(verdict, comment);
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -528,6 +439,195 @@ mod tests {
         let events = emitter.events();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].0, "checker_test_result");
+    }
+
+    #[tokio::test]
+    async fn run_all_reports_a_runner_failure_as_an_error_event_and_keeps_the_test() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
+
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::new(|_| {
+            Err(crate::runner::ExecutionError::OTHER("boom".to_string()))
+        }));
+        let emitter = RecordingEmitter::default();
+
+        CheckerTest::run_all(
+            &problem.path,
+            PathBuf::from("checker.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
+
+        let events = emitter.events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "checker_test_error");
+        assert_eq!(events[0].1["id"], 1);
+        assert_eq!(events[0].1["error"], "boom");
+
+        // no verdict was recorded for the test that could not run
+        let tests = CheckerTest::get_all(&problem.path).unwrap();
+        assert!(matches!(tests[0].actual, CheckerVerdict::None));
+    }
+
+    /// Runs the checker once over a single stored test, with a runner that
+    /// always returns the given result, and returns the test as persisted.
+    async fn run_with(exit_code: i32, stdout: &str, stderr: &str) -> CheckerTest {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
+
+        let (stdout, stderr) = (stdout.to_string(), stderr.to_string());
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::new(move |_| {
+            Ok(crate::runner::ExecutionInfo {
+                stdout: stdout.clone(),
+                stderr: stderr.clone(),
+                execution_time: std::time::Duration::default(),
+                exit_code,
+            })
+        }));
+
+        CheckerTest::run_all(
+            &problem.path,
+            PathBuf::from("checker.py"),
+            RecordingEmitter::default(),
+            runner,
+        )
+        .await
+        .unwrap();
+
+        CheckerTest::get_all(&problem.path).unwrap().remove(0)
+    }
+
+    #[tokio::test]
+    async fn run_all_maps_every_exit_code_to_its_verdict() {
+        assert!(matches!(
+            run_with(0, "", "").await.actual,
+            CheckerVerdict::Ok
+        ));
+        assert!(matches!(
+            run_with(1, "", "").await.actual,
+            CheckerVerdict::WrongAnswer
+        ));
+        assert!(matches!(
+            run_with(2, "", "").await.actual,
+            CheckerVerdict::PresentationError
+        ));
+        // testlib's `fail` exits with 3; anything unexpected counts as a crash
+        assert!(matches!(
+            run_with(3, "", "").await.actual,
+            CheckerVerdict::Crashed
+        ));
+        assert!(matches!(
+            run_with(-1, "", "").await.actual,
+            CheckerVerdict::Crashed
+        ));
+    }
+
+    #[tokio::test]
+    async fn run_all_uses_stdout_as_the_comment_and_falls_back_to_stderr() {
+        let both = run_with(1, "  wrong answer  \n", "from stderr").await;
+        assert_eq!(both.comment, "wrong answer");
+
+        let only_stderr = run_with(3, "  ", " from stderr \n").await;
+        assert_eq!(only_stderr.comment, "from stderr");
+
+        let neither = run_with(0, "", "").await;
+        assert_eq!(neither.comment, "");
+    }
+
+    #[tokio::test]
+    async fn run_all_keeps_the_input_files_alive_while_the_checker_runs() {
+        let (_dir, problem) = temp_problem("p");
+        CheckerTest::create(&problem.path, create_dto(1, "OK")).unwrap();
+
+        // the runner stands in for the checker: it must still find all three
+        // files (input, output, answer) with the stored contents
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::new(|request| {
+            // `python3 checker.py <input> <output> <answer>`: the last three
+            // arguments are the files
+            let contents: Vec<String> = request.args[request.args.len() - 3..]
+                .iter()
+                .map(|path| std::fs::read_to_string(path).unwrap_or_else(|_| "<missing>".into()))
+                .collect();
+            assert_eq!(contents, ["in", "out", "ans"]);
+
+            Ok(crate::runner::ExecutionInfo {
+                stdout: String::new(),
+                stderr: String::new(),
+                execution_time: std::time::Duration::default(),
+                exit_code: 0,
+            })
+        }));
+        let emitter = RecordingEmitter::default();
+
+        CheckerTest::run_all(
+            &problem.path,
+            PathBuf::from("checker.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
+
+        // a panic inside the task (failed assertion) would show up as no event
+        let events = emitter.events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "checker_test_result");
+    }
+
+    #[tokio::test]
+    async fn run_all_runs_every_stored_test_with_its_own_data() {
+        let (_dir, problem) = temp_problem("p");
+        for (id, input) in [(1, "good"), (2, "bad")] {
+            let dto = CheckerTestCreateDto {
+                id,
+                mult: false,
+                input: input.to_string(),
+                output: "out".to_string(),
+                answer: "ans".to_string(),
+                verdict: "OK".to_string(),
+            };
+            CheckerTest::create(&problem.path, dto).unwrap();
+        }
+
+        // the "checker" answers WA only for the test whose input file says "bad"
+        // (`python3 checker.py <input> <output> <answer>`: input is the third-to-last arg)
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::new(|request| {
+            let input_path = &request.args[request.args.len() - 3];
+            let input = std::fs::read_to_string(input_path).unwrap_or_default();
+            let exit_code = if input.contains("bad") { 1 } else { 0 };
+            Ok(crate::runner::ExecutionInfo {
+                stdout: String::new(),
+                stderr: String::new(),
+                execution_time: std::time::Duration::default(),
+                exit_code,
+            })
+        }));
+        let emitter = RecordingEmitter::default();
+
+        CheckerTest::run_all(
+            &problem.path,
+            PathBuf::from("checker.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
+
+        // one result event per test (they run concurrently, so order is not fixed)
+        let events = emitter.events();
+        assert_eq!(events.len(), 2);
+        assert!(events.iter().all(|e| e.0 == "checker_test_result"));
+        let mut event_ids: Vec<u64> = events.iter().map(|e| e.1["id"].as_u64().unwrap()).collect();
+        event_ids.sort();
+        assert_eq!(event_ids, [1, 2]);
+
+        // and each stored test got the verdict of its own run
+        let mut tests = CheckerTest::get_all(&problem.path).unwrap();
+        tests.sort_by_key(|t| t.id);
+        assert!(matches!(tests[0].actual, CheckerVerdict::Ok));
+        assert!(matches!(tests[1].actual, CheckerVerdict::WrongAnswer));
     }
 
     fn edit_dto(id: u16, verdict: &str) -> CheckerTestEditDto {

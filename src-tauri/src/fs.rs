@@ -1,5 +1,8 @@
 use std::path::Path;
 
+use std::io::Write;
+use tempfile::NamedTempFile;
+
 use crate::error::{AppError, AppResult, FsOperation};
 
 /// Attaches filesystem context (what operation, on what path) to a raw
@@ -57,6 +60,14 @@ pub fn to_lf(text: &str) -> String {
     text.replace("\r\n", "\n")
 }
 
+pub fn write_temp(content: &str) -> AppResult<NamedTempFile> {
+    let mut f =
+        tempfile::NamedTempFile::new().fs_context(FsOperation::Create, &std::env::temp_dir())?;
+    f.write_all(content.as_bytes())
+        .fs_context(FsOperation::Write, f.path())?;
+    Ok(f)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,4 +103,3 @@ mod tests {
         assert!(!path.exists());
     }
 }
-

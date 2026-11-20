@@ -109,6 +109,7 @@ mod export;
 mod files;
 mod import;
 mod manager;
+mod meta_tests;
 mod moj;
 mod registration;
 mod solutions;
@@ -116,9 +117,7 @@ mod statement;
 mod tests;
 mod validator;
 
-pub use checker::{
-    CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, CheckerTestError, CheckerVerdict,
-};
+pub use checker::{CheckerTest, CheckerTestCreateDto, CheckerTestEditDto, CheckerVerdict};
 pub use definition::ProblemDefinition;
 pub use dir::ProblemDir;
 pub use files::{
@@ -137,10 +136,10 @@ pub use validator::{
     ValidatorTest, ValidatorTestCreateDto, ValidatorTestEditDto, ValidatorTestResult,
 };
 
-pub use import::{import_moj_package, import_polygon_package, ImportResult};
 pub use export::{
     check_export_tests, export_moj_package, generate_export_tests, solve_export_tests,
     validate_export_tests, ExportManifest, ExportManifestEntry, MojExportReport,
 };
+pub use import::{import_moj_package, import_polygon_package, ImportResult};
 
 use crate::util::Persistant;

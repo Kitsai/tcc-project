@@ -6,7 +6,10 @@ use crate::{
     constants::{MULT_SEPARATOR, VALIDATOR_TESTS_PATH},
     error::{AppError, AppResult},
     fs::delete_file,
-    problem::ProgrammingLanguage,
+    problem::{
+        meta_tests::{self, run_all, MetaTest, TestRunError},
+        ProgrammingLanguage,
+    },
     runner::Runner,
     util::{
         assign_ids, next_available_id, EventEmitter, PathExt, Persistant, ResultExt,
@@ -163,89 +166,35 @@ impl ValidatorTest {
         runner: std::sync::Arc<dyn Runner>,
     ) -> AppResult<()> {
         let tests = Self::get_all(problem_path)?;
-        let tests_path = problem_path.join(VALIDATOR_TESTS_PATH);
 
-        let language = ProgrammingLanguage::get_from_path(&validator_path).ok_or_else(|| {
-            AppError::InvalidLanguage {
-                path: validator_path.clone(),
-            }
-        })?;
-        let request_template = language
-            .resolve(&validator_path, problem_path)
-            .into_request();
-
-        log::debug!(
-            "[run_all] validator={:?} command={:?} args={:?} tests={}",
-            validator_path,
-            request_template.command,
-            request_template.args,
-            tests.len()
-        );
-
-        let mut handles = Vec::new();
-
-        for test in tests {
-            let runner = runner.clone();
-            let emitter = emitter.clone();
-            let tests_path = tests_path.clone();
-            let mut request = request_template.clone();
-
-            let handle = tokio::spawn(async move {
-                request.with_normalized_input(&test.input);
-
-                log::debug!("[run_all] running test id={}", test.id);
-
-                let actual = match runner.execute(request).await {
-                    Err(e) => {
-                        log::debug!("[run_all] test id={} runner error: {}", test.id, e);
-                        emitter.emit(
-                            "validator_test_error",
-                            ValidatorTestError {
-                                id: test.id,
-                                error: e.to_string(),
-                            },
-                        );
-                        return;
-                    }
-                    Ok(info) => {
-                        log::debug!(
-                            "[run_all] test id={} exit={} stderr={:?}",
-                            test.id,
-                            info.exit_code,
-                            info.stderr.trim()
-                        );
-                        if info.exit_code == 0 {
-                            ValidatorTestResult::Valid
-                        } else {
-                            ValidatorTestResult::Invalid
-                        }
-                    }
-                };
-
-                let mut updated = test;
-                updated.set_actual_verdict(actual);
-
-                let path = tests_path.join_id(updated.id);
-                updated.save(&path).ok();
-
-                emitter.emit("validator_test_result", updated);
-            });
-
-            handles.push(handle);
-        }
-
-        for handle in handles {
-            handle.await.ok();
-        }
-
-        Ok(())
+        meta_tests::run_all(problem_path, tests, validator_path, emitter, runner).await
     }
 }
 
-#[derive(Clone, Serialize)]
-pub struct ValidatorTestError {
-    pub id: u16,
-    pub error: String,
+impl MetaTest for ValidatorTest {
+    const EVENT_PREFIX: &'static str = "validator";
+
+    const TESTS_PATH: &'static str = VALIDATOR_TESTS_PATH;
+
+    fn id(&self) -> u16 {
+        self.id
+    }
+
+    fn prepare(
+        &self,
+        request: &mut crate::runner::ExecutionRequest,
+    ) -> AppResult<Vec<tempfile::NamedTempFile>> {
+        request.with_normalized_input(&self.input);
+        Ok(Vec::new())
+    }
+
+    fn record(&mut self, result: &crate::runner::ExecutionInfo) {
+        self.set_actual_verdict(if result.exit_code == 0 {
+            ValidatorTestResult::Valid
+        } else {
+            ValidatorTestResult::Invalid
+        });
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -413,6 +362,85 @@ mod tests {
         let events = emitter.events();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].0, "validator_test_result");
+    }
+
+    #[tokio::test]
+    async fn run_all_reports_a_runner_failure_as_an_error_event_and_keeps_the_test() {
+        let (_dir, problem) = temp_problem("p");
+        ValidatorTest::create(&problem.path, create_dto(1, "VALID")).unwrap();
+
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::new(|_| {
+            Err(crate::runner::ExecutionError::OTHER("boom".to_string()))
+        }));
+        let emitter = RecordingEmitter::default();
+
+        ValidatorTest::run_all(
+            &problem.path,
+            PathBuf::from("validator.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
+
+        let events = emitter.events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "validator_test_error");
+        assert_eq!(events[0].1["id"], 1);
+        assert_eq!(events[0].1["error"], "boom");
+
+        // no verdict was recorded for the test that could not run
+        let tests = ValidatorTest::get_all(&problem.path).unwrap();
+        assert!(matches!(tests[0].actual, ValidatorTestResult::None));
+    }
+
+    #[tokio::test]
+    async fn run_all_runs_every_stored_test_with_its_own_data() {
+        let (_dir, problem) = temp_problem("p");
+        for (id, input) in [(1, "good"), (2, "bad")] {
+            let dto = ValidatorTestCreateDto {
+                id,
+                mult: false,
+                input: input.to_string(),
+                verdict: "VALID".to_string(),
+            };
+            ValidatorTest::create(&problem.path, dto).unwrap();
+        }
+
+        // the "validator" accepts only the input that does not contain "bad"
+        let runner: std::sync::Arc<dyn Runner> = std::sync::Arc::new(MockRunner::new(|request| {
+            let exit_code = if request.input.contains("bad") { 1 } else { 0 };
+            Ok(crate::runner::ExecutionInfo {
+                stdout: String::new(),
+                stderr: String::new(),
+                execution_time: std::time::Duration::default(),
+                exit_code,
+            })
+        }));
+        let emitter = RecordingEmitter::default();
+
+        ValidatorTest::run_all(
+            &problem.path,
+            PathBuf::from("validator.py"),
+            emitter.clone(),
+            runner,
+        )
+        .await
+        .unwrap();
+
+        // one result event per test (they run concurrently, so order is not fixed)
+        let events = emitter.events();
+        assert_eq!(events.len(), 2);
+        assert!(events.iter().all(|e| e.0 == "validator_test_result"));
+        let mut event_ids: Vec<u64> = events.iter().map(|e| e.1["id"].as_u64().unwrap()).collect();
+        event_ids.sort();
+        assert_eq!(event_ids, [1, 2]);
+
+        // and each stored test got the result of its own run
+        let mut tests = ValidatorTest::get_all(&problem.path).unwrap();
+        tests.sort_by_key(|t| t.id);
+        assert!(matches!(tests[0].actual, ValidatorTestResult::Valid));
+        assert!(matches!(tests[1].actual, ValidatorTestResult::Invalid));
     }
 
     fn edit_dto(id: u16, verdict: &str) -> ValidatorTestEditDto {
