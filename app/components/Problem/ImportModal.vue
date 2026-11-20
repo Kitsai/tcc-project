@@ -138,8 +138,6 @@ watch(isOpen, (o) => {
   }
 });
 
-// The two formats take different kinds of source, so a pick made for one
-// must not carry over to the other.
 watch(
   () => form.format,
   () => {

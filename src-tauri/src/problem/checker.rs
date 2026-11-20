@@ -7,10 +7,7 @@ use crate::{
     constants::{CHECKER_TESTS_PATH, MULT_SEPARATOR},
     error::{AppError, AppResult},
     fs::{delete_file, write_temp},
-    problem::{
-        meta_tests::{self, run_all, MetaTest, TestRunError},
-        ProgrammingLanguage,
-    },
+    problem::meta_tests::{self, run_all, MetaTest},
     runner::Runner,
     util::{
         assign_ids, next_available_id, EventEmitter, PathExt, Persistant, ResultExt,
