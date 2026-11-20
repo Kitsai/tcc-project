@@ -7,38 +7,70 @@
         <UHeader title="Import Problem" to="" :toggle="false" />
 
         <div v-if="warnings.length > 0" class="flex flex-col gap-4 p-6">
-          <UAlert v-for="(warning, i) in warnings" :key="i" color="warning" variant="subtle" :description="warning" />
+          <UAlert
+            v-for="(warning, i) in warnings"
+            :key="i"
+            color="warning"
+            variant="subtle"
+            :description="warning"
+          />
           <UButton label="Continue" class="self-end" @click="goToProblem" />
         </div>
 
         <UForm v-else @submit="onSubmit" class="flex flex-col items-center py-20">
           <div class="flex flex-col gap-4 items-start">
             <UFormField label="Format">
-              <USelect v-model="format" :items="formatItems" class="w-56" />
+              <USelect v-model="form.format" :items="formatItems" class="w-56" />
             </UFormField>
 
-            <UFormField :label="format === 'moj' ? 'MOJ package (.tar.gz or folder)' : 'Polygon package folder'">
-              <div v-if="!source" class="flex gap-2">
-                <UButton v-if="format === 'moj'" label="Select File" color="secondary" type="button"
-                  @click="onSelectSource(false)" />
-                <UButton label="Select Folder" color="secondary"
-                  type="button" @click="onSelectSource(true)" />
+            <UFormField
+              :label="
+                form.format === 'moj' ? 'MOJ package (.tar.gz or folder)' : 'Polygon package folder'
+              "
+            >
+              <div v-if="!form.source" class="flex gap-2">
+                <UButton
+                  v-if="form.format === 'moj'"
+                  label="Select File"
+                  color="secondary"
+                  type="button"
+                  @click="onSelectSource(false)"
+                />
+                <UButton
+                  label="Select Folder"
+                  color="secondary"
+                  type="button"
+                  @click="onSelectSource(true)"
+                />
               </div>
-              <LazyUInput v-else :value="source" @click="onSelectSource(format === 'polygon' || sourceIsFolder)" />
+              <LazyUInput
+                v-else
+                :value="form.source"
+                @click="onSelectSource(form.format === 'polygon' || form.sourceIsFolder)"
+              />
             </UFormField>
 
             <UFormField label="Problem Name">
-              <UInput type="text" v-model="problemName" />
+              <UInput type="text" v-model="form.problemName" />
             </UFormField>
 
             <UFormField label="Destination">
-              <UButton v-if="!destFolder" label="Project Location" color="secondary" type="button"
-                @click="onSelectDest" />
-              <LazyUInput v-else :value="destFolder" @click="onSelectDest" />
+              <UButton
+                v-if="!form.destFolder"
+                label="Project Location"
+                color="secondary"
+                type="button"
+                @click="onSelectDest"
+              />
+              <LazyUInput v-else :value="form.destFolder" @click="onSelectDest" />
             </UFormField>
 
-            <UButton class="w-fit text-lg px-5 mt-6" type="submit"
-              :disabled="!source || !destFolder || problemName.length === 0" :loading="problems.loading">
+            <UButton
+              class="w-fit text-lg px-5 mt-6"
+              type="submit"
+              :disabled="!form.source || !form.destFolder || form.problemName.length === 0"
+              :loading="problems.loading"
+            >
               Import
             </UButton>
           </div>
@@ -59,11 +91,24 @@ const formatItems = [
 ];
 
 const isOpen = ref(false);
-const format = ref<ImportFormat>("moj");
-const source = ref<string | null>(null);
-const sourceIsFolder = ref(true);
-const destFolder = ref<string | null>(null);
-const problemName = ref("");
+
+interface ImportForm {
+  format: ImportFormat;
+  source: string | null;
+  sourceIsFolder: boolean;
+  destFolder: string | null;
+  problemName: string;
+}
+
+const initialForm = (): ImportForm => ({
+  format: "moj",
+  source: null,
+  sourceIsFolder: true,
+  destFolder: null,
+  problemName: "",
+});
+
+const form = reactive<ImportForm>(initialForm());
 
 const problems = useProblems();
 const warnings = computed(() => problems.importWarnings);
@@ -78,40 +123,36 @@ async function onSelectSource(directory: boolean) {
   });
   if (!picked) return;
 
-  source.value = picked;
-  sourceIsFolder.value = directory;
-  if (!problemName.value) {
+  form.source = picked;
+  form.sourceIsFolder = directory;
+  if (!form.problemName) {
     const base = picked.split(/[\\/]/).filter(Boolean).pop() ?? "";
-    problemName.value = base.replace(/\.(tar\.gz|tgz|tar)$/i, "");
+    form.problemName = base.replace(/\.(tar\.gz|tgz|tar)$/i, "");
   }
 }
 
-// The store outlives this component (it keeps the last import's warnings
-// across navigation), so every time the modal opens it starts from a clean
-// form instead of showing the previous import's warnings or choices.
-watch(isOpen, (open) => {
-  if (!open) return;
-
-  format.value = "moj";
-  source.value = null;
-  sourceIsFolder.value = true;
-  destFolder.value = null;
-  problemName.value = "";
-  problems.clearImportWarnings();
+watch(isOpen, (o) => {
+  if (o) {
+    Object.assign(form, initialForm());
+    problems.clearImportWarnings();
+  }
 });
 
 // The two formats take different kinds of source, so a pick made for one
 // must not carry over to the other.
-watch(format, () => {
-  source.value = null;
-});
+watch(
+  () => form.format,
+  () => {
+    form.source = null;
+  },
+);
 
 async function onSelectDest() {
-  destFolder.value = await open({ multiple: false, directory: true });
+  form.destFolder = await open({ multiple: false, directory: true });
 }
 
 async function onSubmit() {
-  await problems.importPackage(format.value, source.value!, destFolder.value!, problemName.value);
+  await problems.importPackage(form.format, form.source!, form.destFolder!, form.problemName);
 
   if (problems.error !== null) {
     const { throwError } = useCustomToast();
@@ -128,7 +169,7 @@ function goToProblem() {
   navigateTo({
     path: "/problem",
     query: {
-      path: destFolder.value! + "/" + problemName.value!,
+      path: form.destFolder! + "/" + form.problemName!,
     },
   });
 }
