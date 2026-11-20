@@ -68,7 +68,10 @@ impl ProgrammingLanguage {
     /// extensions in order. Python is tried first since it needs no compile
     /// step; this is also the general mapping to reach for anywhere else a
     /// bare name needs to become a real source file.
-    pub fn resolve_bare_name(project_path: &Path, relative_no_ext: &Path) -> Option<(Self, PathBuf)> {
+    pub fn resolve_bare_name(
+        project_path: &Path,
+        relative_no_ext: &Path,
+    ) -> Option<(Self, PathBuf)> {
         for ext in ["py", "cpp"] {
             let relative = relative_no_ext.with_extension(ext);
             if project_path.join(&relative).exists() {
@@ -273,6 +276,15 @@ mod tests {
     use super::*;
     use crate::test_support::MockRunner;
 
+    fn set_modified(path: &Path, time: SystemTime) {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(time)
+            .unwrap();
+    }
+
     #[test]
     fn get_from_extension_maps_known_extensions() {
         assert!(matches!(
@@ -335,10 +347,7 @@ mod tests {
 
         let destination = dir.path().join("a.bin");
         std::fs::write(&destination, "old").unwrap();
-        std::fs::File::open(&destination)
-            .unwrap()
-            .set_modified(SystemTime::now() - Duration::from_secs(120))
-            .unwrap();
+        set_modified(&destination, SystemTime::now() - Duration::from_secs(120));
 
         let source = dir.path().join("a.cpp");
         std::fs::write(&source, "new").unwrap();
@@ -352,10 +361,7 @@ mod tests {
 
         let source = dir.path().join("a.cpp");
         std::fs::write(&source, "x").unwrap();
-        std::fs::File::open(&source)
-            .unwrap()
-            .set_modified(SystemTime::now() - Duration::from_secs(120))
-            .unwrap();
+        set_modified(&source, SystemTime::now() - Duration::from_secs(120));
 
         let destination = dir.path().join("a.bin");
         std::fs::write(&destination, "y").unwrap();
@@ -385,10 +391,7 @@ mod tests {
         let destination = binary_output_path(relative, project_path);
         std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
         std::fs::write(&destination, "binary").unwrap();
-        std::fs::File::open(&destination)
-            .unwrap()
-            .set_modified(SystemTime::now() + Duration::from_secs(60))
-            .unwrap();
+        set_modified(&destination, SystemTime::now() + Duration::from_secs(60));
 
         let runner = MockRunner::unreachable();
 
