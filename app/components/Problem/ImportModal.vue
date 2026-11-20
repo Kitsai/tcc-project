@@ -86,6 +86,20 @@ async function onSelectSource(directory: boolean) {
   }
 }
 
+// The store outlives this component (it keeps the last import's warnings
+// across navigation), so every time the modal opens it starts from a clean
+// form instead of showing the previous import's warnings or choices.
+watch(isOpen, (open) => {
+  if (!open) return;
+
+  format.value = "moj";
+  source.value = null;
+  sourceIsFolder.value = true;
+  destFolder.value = null;
+  problemName.value = "";
+  problems.clearImportWarnings();
+});
+
 // The two formats take different kinds of source, so a pick made for one
 // must not carry over to the other.
 watch(format, () => {

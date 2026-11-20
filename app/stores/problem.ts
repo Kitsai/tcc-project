@@ -56,6 +56,10 @@ export const useProblems = defineStore('problem', () => {
     loading.value = false;
   }
 
+  function clearImportWarnings() {
+    importWarnings.value = [];
+  }
+
   return {
     currentProblem,
     loading,
@@ -65,6 +69,7 @@ export const useProblems = defineStore('problem', () => {
     currentName,
     load,
     create,
-    importPackage
+    importPackage,
+    clearImportWarnings
   };
 });
