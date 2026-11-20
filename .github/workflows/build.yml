@@ -1,0 +1,83 @@
+name: Release
+
+# Runs when a version tag (v0.1.0, ...) is pushed: builds the installers for
+# Linux and Windows and attaches them to a draft GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # needed to create the release and upload its assets
+
+jobs:
+  release:
+    name: Release (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Built on an older Ubuntu so the .deb/.AppImage run on more distros.
+          - os: ubuntu-22.04
+            name: linux
+          - os: windows-latest
+            name: windows
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stops a release whose installers would carry a different version
+      # than the tag (the installer version comes from tauri.conf.json).
+      - name: Check the tag matches the app version
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "v$version" != "${{ github.ref_name }}" ]; then
+            echo "Tag ${{ github.ref_name }} does not match the version $version in tauri.conf.json" >&2
+            exit 1
+          fi
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # Tauri's WebView and bundlers, plus libdbus for the `keyring` crate.
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev libdbus-1-dev pkg-config patchelf
+
+      # The pnpm version comes from `packageManager` in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The two `polygon_credentials` tests read/write the OS keyring, which a
+      # CI runner does not have (no secret service on Linux).
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test -- --skip polygon_credentials
+
+      - name: Build and publish the draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # `nuxt build` runs out of memory with Node's default heap.
+          NODE_OPTIONS: --max-old-space-size=6144
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Ballooner ${{ github.ref_name }}
+          releaseBody: Download the installer for your system from the assets below.
+          releaseDraft: true
+          prerelease: false
