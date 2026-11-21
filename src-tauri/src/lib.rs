@@ -13,6 +13,7 @@ mod fs;
 pub mod lsp;
 pub mod polygon;
 pub mod problem;
+mod resources;
 pub mod runner;
 pub mod settings;
 #[cfg(test)]
@@ -44,6 +45,13 @@ fn setup_global_compile_flags(includes: &[String]) -> Option<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // One and only `generate_context!()` call in the whole binary: every call
+    // site embeds the frontend assets again, and `resources::init` needs the
+    // resolved resource dir before `get_include_paths()` runs, a few lines
+    // down, so this has to come first.
+    let context = tauri::generate_context!();
+    resources::init(&context);
+
     let settings = settings::AppSettings::load().expect("Failed to load settings");
 
     let include_paths = get_include_paths();
@@ -144,6 +152,6 @@ pub fn run() {
             commands::compile::check_languages,
             commands::dev::clean_binaries,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }

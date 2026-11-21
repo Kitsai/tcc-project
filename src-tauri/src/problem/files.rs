@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constants::{BINARY_DIR, BINARY_EXTENSION, CPP_COMPILER, PYTHON_INTERPRETER},
     error::AppResult,
+    resources,
     runner::{ExecutionRequest, Runner},
     util::ResultExt,
 };
@@ -204,14 +205,7 @@ fn binary_output_path(source: &Path, project_path: &Path) -> PathBuf {
 /// Returns the path to the bundled default checker files (`resources/checkers/`),
 /// or `None` if the directory does not exist.
 pub fn get_default_checkers_path() -> Option<PathBuf> {
-    let current_dir = std::env::current_dir().ok()?;
-    let mut path = current_dir;
-    if path.ends_with("src-tauri") {
-        path.push("resources/checkers");
-    } else {
-        path.push("src-tauri/resources/checkers");
-    }
-    path.exists().then_some(path)
+    resources::bundled_resource("checkers")
 }
 
 /// Resolves the directories that should be passed to the C++ compiler/LSP as
@@ -227,17 +221,8 @@ pub fn get_include_paths() -> Vec<String> {
         includes.push(home.to_string_lossy().to_string());
     }
 
-    if let Ok(current_dir) = std::env::current_dir() {
-        let mut resource_path = current_dir.clone();
-        if resource_path.ends_with("src-tauri") {
-            resource_path.push("resources/includes");
-        } else {
-            resource_path.push("src-tauri/resources/includes");
-        }
-
-        if resource_path.exists() {
-            includes.push(resource_path.to_string_lossy().to_string());
-        }
+    if let Some(resource_path) = resources::bundled_resource("includes") {
+        includes.push(resource_path.to_string_lossy().to_string());
     }
 
     includes
