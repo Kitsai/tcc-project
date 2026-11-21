@@ -1,15 +1,10 @@
 use std::path::PathBuf;
 
-use tauri::utils::platform::resource_dir;
+use crate::resources;
 
 pub struct BinaryResolver;
 
 impl BinaryResolver {
-    fn get_resource_dir() -> Option<PathBuf> {
-        let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
-        resource_dir(context.package_info(), &Default::default()).ok()
-    }
-
     fn get_platform_string() -> &'static str {
         #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
         return "linux-x64";
@@ -33,7 +28,7 @@ impl BinaryResolver {
     }
 
     pub fn get_bundled_binary(name: &str) -> Option<PathBuf> {
-        let resource_dir = Self::get_resource_dir()?;
+        let resource_dir = resources::installed_resource_dir()?;
 
         let binary_name = if cfg!(windows) {
             format!("{}.exe", name)
