@@ -53,11 +53,7 @@ pub async fn run_checker_tests(
     let problem_path = problem_manager.get_current_path()?;
 
     let checker_path = compile_service
-        .compile_selected(
-            &problem_path,
-            || problem_manager.get_current_checker_path(),
-            "No checker configured for this problem",
-        )
+        .compile_selected(&problem_path, || problem_manager.get_current_checker_path())
         .await?;
 
     CheckerTest::run_all(&problem_path, checker_path, app, runner.inner().clone()).await

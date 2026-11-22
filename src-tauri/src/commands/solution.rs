@@ -84,9 +84,7 @@ pub async fn output_from_main(
 ) -> AppResult<String> {
     let problem_path = problem.get_current_path()?;
 
-    let solution_path = problem
-        .get_main_solution_path()?
-        .ok_or_else(|| "No main solution set for this problem".to_string())?;
+    let solution_path = problem.get_main_solution_path()?;
 
     let language = ProgrammingLanguage::get_from_path(&solution_path)
         .ok_or_else(|| AppError::InvalidLanguage { path: solution_path.clone() })?;

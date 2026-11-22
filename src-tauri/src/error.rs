@@ -16,6 +16,12 @@ pub enum AppError {
     InvalidLanguage { path: PathBuf },
     #[error("No problem is open")]
     NoProblemOpen,
+    #[error("No checker configured")]
+    NoChecker,
+    #[error("No validator configured for this problem")]
+    NoValidator,
+    #[error("No main solution set for this problem")]
+    NoMainSolution,
     #[error("{0}")]
     Default(String),
 }

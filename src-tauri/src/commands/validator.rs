@@ -55,11 +55,7 @@ pub async fn run_validator_tests(
     let problem_path = problem_manager.get_current_path()?;
 
     let validator_path = compile_service
-        .compile_selected(
-            &problem_path,
-            || problem_manager.get_current_validator_path(),
-            "No validator configured for this problem",
-        )
+        .compile_selected(&problem_path, || problem_manager.get_current_validator_path())
         .await?;
 
     ValidatorTest::run_all(&problem_path, validator_path, app, runner.inner().clone()).await

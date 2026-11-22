@@ -46,8 +46,7 @@ impl ProblemManager {
         self.set_main_solution(SolutionDescription::main_solution_file_name(solutions))
     }
 
-    /// Returns the validator's source path, relative to the problem's root directory.
-    pub fn get_current_validator_path(&self) -> AppResult<Option<PathBuf>> {
+    pub fn get_current_validator_path(&self) -> AppResult<PathBuf> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
@@ -55,7 +54,8 @@ impl ProblemManager {
                 .definition
                 .validator
                 .as_ref()
-                .map(|v| Path::new(ProblemFileType::Validator.directory()).join(v)))
+                .map(|v| Path::new(ProblemFileType::Validator.directory()).join(v))
+                .ok_or(AppError::NoValidator)?)
         } else {
             Err(AppError::NoProblemOpen)
         }
@@ -63,7 +63,7 @@ impl ProblemManager {
 
     /// Returns the main solution's source path, relative to the problem's
     /// root directory.
-    pub fn get_main_solution_path(&self) -> AppResult<Option<PathBuf>> {
+    pub fn get_main_solution_path(&self) -> AppResult<PathBuf> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
@@ -71,7 +71,8 @@ impl ProblemManager {
                 .definition
                 .main_solution
                 .as_ref()
-                .map(|m| Path::new(ProblemFileType::Solution.directory()).join(m)))
+                .map(|m| Path::new(ProblemFileType::Solution.directory()).join(m))
+                .ok_or(AppError::NoMainSolution)?)
         } else {
             Err(AppError::NoProblemOpen)
         }
@@ -80,19 +81,24 @@ impl ProblemManager {
     /// Returns the checker's source path. For default checkers (stored with the
     /// `@default:` prefix) this is an absolute path into the bundled resources
     /// directory; for user files it is a relative path under the problem's `files/`.
-    pub fn get_current_checker_path(&self) -> AppResult<Option<PathBuf>> {
+    pub fn get_current_checker_path(&self) -> AppResult<PathBuf> {
         let curr = self.current.read().err_to_string()?;
 
         if let Some(problem) = &*curr {
-            Ok(problem.definition.checker.as_ref().map(|c| {
-                if let Some(name) = c.strip_prefix("@default:") {
-                    get_default_checkers_path()
-                        .map(|p| p.join(name))
-                        .unwrap_or_else(|| PathBuf::from(name))
-                } else {
-                    Path::new(ProblemFileType::Checker.directory()).join(c)
-                }
-            }))
+            Ok(problem
+                .definition
+                .checker
+                .as_ref()
+                .map(|c| {
+                    if let Some(name) = c.strip_prefix("@default:") {
+                        get_default_checkers_path()
+                            .map(|p| p.join(name))
+                            .unwrap_or_else(|| PathBuf::from(name))
+                    } else {
+                        Path::new(ProblemFileType::Checker.directory()).join(c)
+                    }
+                })
+                .ok_or(AppError::NoChecker)?)
         } else {
             Err(AppError::NoProblemOpen)
         }
@@ -175,7 +181,9 @@ mod tests {
         let (_dir, problem) = temp_problem("p");
         let manager = manager_with(problem);
 
-        manager.set_main_solution(Some("main.cpp".to_string())).unwrap();
+        manager
+            .set_main_solution(Some("main.cpp".to_string()))
+            .unwrap();
 
         let curr = manager.current.read().unwrap();
         assert_eq!(
@@ -213,12 +221,31 @@ mod tests {
     }
 
     #[test]
+    fn selected_paths_fail_with_a_typed_error_when_nothing_is_set() {
+        let (_dir, problem) = temp_problem("p");
+        let manager = manager_with(problem);
+
+        assert!(matches!(
+            manager.get_current_validator_path().unwrap_err(),
+            AppError::NoValidator
+        ));
+        assert!(matches!(
+            manager.get_main_solution_path().unwrap_err(),
+            AppError::NoMainSolution
+        ));
+        assert!(matches!(
+            manager.get_current_checker_path().unwrap_err(),
+            AppError::NoChecker
+        ));
+    }
+
+    #[test]
     fn get_current_checker_path_resolves_plain_filename() {
         let (_dir, mut problem) = temp_problem("p");
         problem.definition.checker = Some("checker.cpp".to_string());
         let manager = manager_with(problem);
 
-        let path = manager.get_current_checker_path().unwrap().unwrap();
+        let path = manager.get_current_checker_path().unwrap();
         assert_eq!(
             path,
             Path::new(ProblemFileType::Checker.directory()).join("checker.cpp")
@@ -231,16 +258,8 @@ mod tests {
         problem.definition.checker = Some("@default:sample.cpp".to_string());
         let manager = manager_with(problem);
 
-        let path = manager.get_current_checker_path().unwrap().unwrap();
+        let path = manager.get_current_checker_path().unwrap();
         assert_eq!(path.file_name().unwrap(), "sample.cpp");
     }
 
-    #[test]
-    fn validator_and_main_solution_paths_are_none_when_unset() {
-        let (_dir, problem) = temp_problem("p");
-        let manager = manager_with(problem);
-
-        assert!(manager.get_current_validator_path().unwrap().is_none());
-        assert!(manager.get_main_solution_path().unwrap().is_none());
-    }
 }

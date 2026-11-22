@@ -42,11 +42,10 @@ impl CompileService {
     pub async fn compile_selected(
         &self,
         problem_path: &Path,
-        select: impl FnOnce() -> AppResult<Option<PathBuf>>,
-        missing_message: &str,
+        select: impl FnOnce() -> AppResult<PathBuf>,
     ) -> AppResult<PathBuf> {
         let _guard = self.lock().await;
-        let selected = select()?.ok_or(missing_message)?;
+        let selected = select()?;
 
         let language =
             ProgrammingLanguage::get_from_path(&selected).ok_or(AppError::InvalidLanguage {
@@ -87,26 +86,12 @@ mod tests {
         let path = service
             .compile_selected(
                 dir.path(),
-                || Ok(Some(PathBuf::from("files/checker.py"))),
-                "nothing selected",
+                || Ok(PathBuf::from("files/checker.py")),
             )
             .await
             .unwrap();
 
         assert_eq!(path, PathBuf::from("files/checker.py"));
-    }
-
-    #[tokio::test]
-    async fn compile_selected_without_a_selection_fails_with_the_given_message() {
-        let dir = tempfile::tempdir().unwrap();
-        let service = CompileService::new(Arc::new(MockRunner::unreachable()));
-
-        let err = service
-            .compile_selected(dir.path(), || Ok(None), "No checker configured")
-            .await
-            .unwrap_err();
-
-        assert_eq!(err.to_string(), "No checker configured");
     }
 
     #[tokio::test]
@@ -117,8 +102,7 @@ mod tests {
         let err = service
             .compile_selected(
                 dir.path(),
-                || Ok(Some(PathBuf::from("files/notes.txt"))),
-                "nothing selected",
+                || Ok(PathBuf::from("files/notes.txt")),
             )
             .await
             .unwrap_err();
@@ -132,7 +116,7 @@ mod tests {
         let service = CompileService::new(Arc::new(MockRunner::unreachable()));
 
         let err = service
-            .compile_selected(dir.path(), || Err(AppError::NoProblemOpen), "unused")
+            .compile_selected(dir.path(), || Err(AppError::NoProblemOpen))
             .await
             .unwrap_err();
 
@@ -152,9 +136,8 @@ mod tests {
                         service.lock.try_lock().is_err(),
                         "the lock must already be held while the selection is read"
                     );
-                    Ok(Some(PathBuf::from("files/checker.py")))
+                    Ok(PathBuf::from("files/checker.py"))
                 },
-                "nothing selected",
             )
             .await
             .unwrap();

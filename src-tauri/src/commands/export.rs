@@ -29,13 +29,19 @@ pub async fn validate_export_tests(
 ) -> AppResult<u16> {
     let problem_path = problem_manager.get_current_path()?;
 
-    let validator_path = compile_service
-        .compile_selected(
-            &problem_path,
-            || problem_manager.get_current_validator_path(),
-            "No validator configured for this problem",
-        )
-        .await?;
+    let validator_path = match compile_service
+        .compile_selected(&problem_path, || {
+            problem_manager.get_current_validator_path()
+        })
+        .await
+    {
+        Ok(p) => p,
+        Err(AppError::NoValidator) => {
+            log::warn!("No validator defined");
+            return Ok(0);
+        }
+        Err(e) => return Err(e),
+    };
 
     problem::validate_export_tests(&problem_path, &validator_path, runner.inner().clone()).await
 }
@@ -49,11 +55,7 @@ pub async fn solve_export_tests(
     let problem_path = problem_manager.get_current_path()?;
 
     let solution_path = compile_service
-        .compile_selected(
-            &problem_path,
-            || problem_manager.get_main_solution_path(),
-            "No main solution set for this problem",
-        )
+        .compile_selected(&problem_path, || problem_manager.get_main_solution_path())
         .await?;
 
     problem::solve_export_tests(&problem_path, &solution_path, runner.inner().clone()).await
@@ -68,20 +70,12 @@ pub async fn check_export_tests(
     let problem_path = problem_manager.get_current_path()?;
 
     let checker_path = compile_service
-        .compile_selected(
-            &problem_path,
-            || problem_manager.get_current_checker_path(),
-            "No checker configured for this problem",
-        )
+        .compile_selected(&problem_path, || problem_manager.get_current_checker_path())
         .await?;
 
     problem::check_export_tests(&problem_path, &checker_path, runner.inner().clone()).await
 }
 
-/// Packs the current problem as a MOJ package at `dest_path`. A non-empty
-/// `author` is persisted to the problem first (MOJ requires one). A problem
-/// with no author (e.g. imported without one) is exported under the global
-/// author name from the settings, without writing it to the problem.
 #[tauri::command]
 pub fn export_moj_package(
     problem_manager: State<'_, ProblemManager>,
